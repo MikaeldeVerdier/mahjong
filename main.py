@@ -19,6 +19,8 @@ classes = [
            ]
 class_amount = len(classes)
 max_output = 532
+batch_size = 256
+training_iterations = 1
 
 def preprocess_image(path):
     img = Image.open(path)
@@ -73,7 +75,7 @@ def prepare_dataset(paths, convert_classes):
 
 def retrain_network(nn, dataset, iteration_amount, epochs=1):
     for i in range(iteration_amount):
-        x, y_loc, y_conf = zip(*random.sample(dataset, 256))
+        x, y_loc, y_conf = zip(*random.sample(dataset, batch_size))
 
         y = {"locations": np.array(y_loc, dtype="int32"), "confidences": np.array(y_conf)}
         nn.train([np.array(x)], y, epochs)
@@ -85,11 +87,11 @@ def retrain_network(nn, dataset, iteration_amount, epochs=1):
 if __name__ == "__main__":
     nn = NeuralNetwork(input_shape, class_amount, max_output=max_output)
 
-    dataset = prepare_dataset(["dataset/dataset1", "dataset/dataset2"], [convert_class_MjT, convert_class_SG])
-    retrain_network(nn, dataset, 250)
+    dataset = prepare_dataset(["datasets/dataset1", "datasets/dataset2"], [convert_class_SG, convert_class_MjT])
+    retrain_network(nn, dataset, training_iterations)
 
-    nn.plot_metrics()
     nn.save_model("model")
+    nn.plot_metrics()
 
     # Inference:
 

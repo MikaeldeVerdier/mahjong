@@ -11,7 +11,7 @@ from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.optimizers import SGD
 
 class NeuralNetwork:
-	def __init__(self, inp_shape, class_amount, max_output=25, lr=1e-2, momentum=0.9, confidence_weight=0.7, load=False):
+	def __init__(self, inp_shape, class_amount, max_output=25, lr=1e-1, momentum=0.9, confidence_weight=0.7, load=False):
 		self.inp_shape = inp_shape
 		self.class_amount = class_amount
 		self.max_output = max_output
@@ -114,7 +114,7 @@ class NeuralNetwork:
 			print("You need to install pydot and graphviz to plot model architecture.")
 
 	def plot_metrics(self):
-		_, axs = plt.subplots(2)
+		_, axs = plt.subplots(len(self.metrics), figsize=(15, 4 * len(self.metrics)))
 
 		for i, metric in enumerate(self.metrics):
 			axs[i].plot(self.metrics[metric], label=metric)
