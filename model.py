@@ -5,8 +5,8 @@ import tensorflow as tf
 from keras.utils.vis_utils import plot_model
 from tensorflow.keras.applications import VGG16
 from tensorflow.keras.layers import Activation, Concatenate, Conv2D, Input, Reshape
-from tensorflow.keras.losses import Huber, CategoricalCrossentropy
-from tensorflow.keras.metrics import MeanSquaredError, Accuracy
+from tensorflow.keras.losses import CategoricalCrossentropy, Huber
+from tensorflow.keras.metrics import Accuracy, MeanSquaredError
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.optimizers import SGD
 
