@@ -102,7 +102,7 @@ class NeuralNetwork:
 			f.write(json.dumps(self.metrics))
 
 	def load_model(self, name):
-		self.model = load_model(f"save_folder/{name}", custom_objects={"loss_func": self.loss_func})
+		self.model = load_model(f"save_folder/{name}")
 
 		with open("save_folder/save.json", "r") as f:
 			self.metrics = json.loads(f.read())

@@ -20,7 +20,7 @@ classes = [
 class_amount = len(classes)
 max_output = 532
 batch_size = 256
-training_iterations = 1
+training_iterations = 10
 
 def preprocess_image(path):
     img = Image.open(path)
