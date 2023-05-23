@@ -6,7 +6,7 @@ from keras.utils.vis_utils import plot_model
 from tensorflow.keras.applications import VGG16
 from tensorflow.keras.layers import Activation, Concatenate, Conv2D, Input, Reshape
 from tensorflow.keras.losses import CategoricalCrossentropy, Huber
-from tensorflow.keras.metrics import Accuracy, MeanSquaredError
+from tensorflow.keras.metrics import Accuracy, MeanAbsoluteError
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.optimizers import SGD
 
@@ -24,7 +24,10 @@ class NeuralNetwork:
 		priors = [4, 6, 6, 4, 4]
 
 		base_network = VGG16(include_top=False, weights="imagenet", input_shape=inp_shape)
-		base_network.trainable = False
+		frozen_layer_amount = 5
+		for layer in base_network.layers[:frozen_layer_amount]:
+			layer.trainable = False
+		# base_network.trainable = False
 
 		inp = Input(shape=self.inp_shape)
 
@@ -62,12 +65,12 @@ class NeuralNetwork:
 		class_predictions = Concatenate(axis=1, name="confidences")(head_outputs[1])
 
 		self.model = Model(inputs=[inp], outputs=[location_predictions, class_predictions])
-		self.model.compile(loss={"locations": Huber(delta=1.0), "confidences": CategoricalCrossentropy(from_logits=True)}, optimizer=SGD(learning_rate=lr, momentum=momentum), metrics={"locations": MeanSquaredError(), "confidences": Accuracy()}, loss_weights={"locations": 1, "confidences": 50})
+		self.model.compile(loss={"locations": Huber(delta=1.0), "confidences": CategoricalCrossentropy(from_logits=True)}, optimizer=SGD(learning_rate=lr, momentum=momentum), metrics={"locations": MeanAbsoluteError(), "confidences": Accuracy()}, loss_weights={"locations": 1, "confidences": 500})
 
 		self.plot_model()
 		self.model.summary()
 
-		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "locations_mean_squared_error": [], "confidences_accuracy": []}
+		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "locations_mean_absolute_error": [], "confidences_accuracy": []}
 
 	def postprocessing(self, boxes, scores, iou_threshold=0.5, score_threshold=0.1):
 		boxes = tf.convert_to_tensor(boxes, dtype="float32")
