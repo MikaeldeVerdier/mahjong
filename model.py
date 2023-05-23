@@ -116,7 +116,9 @@ class NeuralNetwork:
 	def plot_metrics(self):
 		_, axs = plt.subplots(len(self.metrics), figsize=(15, 4 * len(self.metrics)))
 
-		for i, metric in enumerate(self.metrics):
-			axs[i].plot(self.metrics[metric], label=metric)
+		for ax, metric in zip(axs, self.metrics):
+			ax.plot(self.metrics[metric], label=metric)
+			ax.set_xscale("linear")
+			ax.legend()
 
 		plt.savefig("save_folder/metrics.png", dpi=200)
