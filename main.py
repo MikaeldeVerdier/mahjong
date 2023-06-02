@@ -5,9 +5,9 @@ import numpy as np
 from PIL import Image
 
 from funcs import convert_class_SG, convert_class_MjT
-from model import NeuralNetwork
+from model import SSD_Model
+from default_box import CellBox
 
-input_shape = (300, 300, 3)
 classes = [
             "inget", "baksida",
             "bambu_1", "bambu_2", "bambu_3", "bambu_4", "bambu_5", "bambu_6", "bambu_7", "bambu_8", "bambu_9",
@@ -18,7 +18,9 @@ classes = [
             "blomma_norr", "blomma_syd", "blomma_väst", "blomma_öst"
            ]
 class_amount = len(classes)
-max_output = 532
+
+input_shape = (300, 300, 3)
+max_output = 100
 batch_size = 256
 training_iterations = 10
 
@@ -32,9 +34,8 @@ def preprocess_image(path):
     return img
 
 
-def prepare_dataset(paths, convert_classes):
+def prepare_dataset(model, paths, convert_classes):
     dataset = []
-
     for path, convert_class in zip(paths, convert_classes):
         with open(f"{path}/_annotations.csv", "r") as csvfile:
             render = csv.reader(csvfile)
@@ -44,8 +45,8 @@ def prepare_dataset(paths, convert_classes):
 
             i = 0
             while i < len(a):
-                locations = []
-                confidences = []
+                b_boxes = []
+                class_indices = []
 
                 i2 = 0
                 for img in a[i:]:
@@ -54,50 +55,66 @@ def prepare_dataset(paths, convert_classes):
 
                     class_name = convert_class(img[3])
                     if class_name in classes:
-                        locations.append(img[4:])
+                        b_boxes.append(CellBox(abs_coords=map(lambda coord: float(coord) / float(img[1 + int(coord) % 2]), img[4:])))
 
                         class_index = classes.index(class_name)
-                        confidences.append(np.eye(class_amount)[class_index])
+                        class_indices.append(class_index)
 
                     i2 += 1
 
-                img_path = os.path.join(path, a[i][0])
+                if b_boxes and class_indices:
+                    img_path = os.path.join(path, a[i][0])
 
-                locations += [[0] * 4] * (max_output - len(locations))
-                confidences += [[0] * class_amount] * (max_output - len(confidences))
-                data = [preprocess_image(img_path), locations, confidences]
-                dataset.append(data)
+                    indices, boxes = model.match_boxes(b_boxes)
+                    offsets = [[b_box.create_offset(box) for box in matched_boxes] for b_box, matched_boxes in zip(b_boxes, boxes)]
+
+                    locations = np.zeros((len(model.default_boxes), 4))
+                    locations[indices] = offsets  # np.eye?
+                    confidences = np.zeros((len(model.default_boxes), class_amount), dtype="int32")
+                    confidences[indices, class_indices] = 1
+                    # could maybe do one-hot encoding here
+
+                    data = [preprocess_image(img_path), locations, confidences]
+                    dataset.append(data)
 
                 i += i2
 
     return dataset
 
 
-def retrain_network(nn, dataset, iteration_amount, epochs=1):
+def retrain(model, dataset, iteration_amount, epochs=1):
     for i in range(iteration_amount):
         x, y_loc, y_conf = zip(*random.sample(dataset, batch_size))
 
         y = {"locations": np.array(y_loc, dtype="int32"), "confidences": np.array(y_conf)}
-        nn.train([np.array(x)], y, epochs)
+        model.train([np.array(x)], y, epochs)
 
         if not int(i  % (iteration_amount / 10)):
             print(f"Training iteration {i} completed!")
 
 
+def inference(model, path):
+    image = preprocess_image(path)
+
+    found_classes, found_boxes, confs = model.get_preds(image)
+    labeled_classes = np.array(classes)[found_classes]
+
+    class_infos = list(zip(labeled_classes, found_boxes, confs))
+
+    return class_infos
+
+
+def evaluate(model):
+    pass
+
+
 if __name__ == "__main__":
-    nn = NeuralNetwork(input_shape, class_amount, max_output=max_output)
+    model = SSD_Model(input_shape, class_amount, max_output=max_output)
 
-    dataset = prepare_dataset(["datasets/dataset1", "datasets/dataset2"], [convert_class_SG, convert_class_MjT])
-    retrain_network(nn, dataset, training_iterations)
+    infos = inference(model, "save_folder/model_architecture.png")
 
-    nn.save_model("model")
-    nn.plot_metrics()
+    dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train", "datasets/mahjong detection for MjT.v4-resize.tensorflow/train"], [convert_class_SG, convert_class_MjT])
+    retrain(model, dataset, training_iterations)
 
-    # Inference:
-
-    # image = preprocess_image("/Users/mikaeldeverdier/mahjong/dataset new no_green/drake_vit/4cell_3_6.jpg")
-    # found_classes, found_boxes, confs = nn.get_preds(image)
-    # found_boxes = found_boxes.tolist()
-    # labeled_classes = np.array(classes)[found_classes].tolist()
-
-    # class_infos = list(zip(labeled_classes, found_boxes, confs))
+    model.save_model("model")
+    model.plot_metrics()
