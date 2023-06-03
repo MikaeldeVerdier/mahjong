@@ -104,14 +104,13 @@ class SSD_Model:
 
 		return selected_classes, bounding_boxes, selected_scores
 
-	def match_boxes(self, gt_boxes):
+	def match_boxes(self, gt_boxes, threshold=0.5):
 		matches = []
 		for gt_box in gt_boxes:
 			gt_ious = [box.calc_iou(gt_box) for box in self.default_boxes]
 
 			matches.append(np.array([np.argmax(gt_ious)]))
 
-		threshold = 0.5
 		for i, box in enumerate(self.default_boxes):
 			def_ious = [box.calc_iou(gt_box) for gt_box in gt_boxes]
 

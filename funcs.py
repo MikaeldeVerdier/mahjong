@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+
 def convert_class_MjT(class_name):
     replacements = {
         "s": "bambu",
@@ -60,3 +63,15 @@ def convert_class_SG(class_name):
     tile = "_".join([replacements[word] if not word.isdigit() and word not in flower_dict.values() else word for word in split])
 
     return tile
+
+
+# Incorrect
+def plot_b_boxes(img, b_boxes):
+    _, ax = plt.subplots()
+
+    ax.imshow(img)
+
+    for b_box in b_boxes:
+        ax.add_patch(Rectangle((b_box.abs_coords[0], b_box.abs_coords[1]), b_box.size_coords[2], b_box.size_coords[3]))
+
+    plt.savefig("box.png", dpi=200)

@@ -4,7 +4,7 @@ import random
 import numpy as np
 from PIL import Image
 
-from funcs import convert_class_SG, convert_class_MjT
+from funcs import convert_class_SG, convert_class_MjT, plot_b_boxes
 from model import SSD_Model
 from default_box import CellBox
 
@@ -69,12 +69,10 @@ def prepare_dataset(model, paths, convert_classes):
                     offsets = [[b_box.create_offset(box) for box in matched_boxes] for b_box, matched_boxes in zip(b_boxes, boxes)]
 
                     locations = np.zeros((len(model.default_boxes), 4))
-                    for index, offset in zip(indices, offsets):
-                        locations[index] = offset  # np.eye?
                     confidences = np.zeros((len(model.default_boxes), class_amount), dtype="int32")
-                    for index, class_index in zip(indices, class_indices):
+                    for index, offset, class_index in zip(indices, offsets, class_indices):
+                        locations[index] = offset
                         confidences[index, class_index] = 1
-                    # could maybe do one-hot encoding here
 
                     data = [preprocess_image(img_path), locations, confidences]
                     dataset.append(data)
@@ -103,6 +101,9 @@ def inference(model, path):
 
     class_infos = list(zip(labeled_classes, found_boxes, confs))
 
+    # b_boxes = [CellBox(size_coords=(0.5, 0.5, 0.9, 0.9))]  # [CellBox(size_coords=found_box) for found_box in found_boxes]
+    # plot_b_boxes(Image.open(path), b_boxes)
+
     return class_infos
 
 
@@ -115,7 +116,7 @@ if __name__ == "__main__":
 
     infos = inference(model, "save_folder/model_architecture.png")
 
-    dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train", "datasets/mahjong detection for MjT.v4-resize.tensorflow/train"], [convert_class_SG, convert_class_MjT])
+    dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/test", "datasets/mahjong detection for MjT.v4-resize.tensorflow/test"], [convert_class_SG, convert_class_MjT])
     retrain(model, dataset, training_iterations)
 
     model.save_model("model")
