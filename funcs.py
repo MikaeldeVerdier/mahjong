@@ -82,4 +82,4 @@ def plot_info(img, infos):
 
         ax.text(top_left_x + 5, top_left_y - 7, f"{info[0]} ({info[2]:.5f})", fontsize=5, backgroundcolor="y")
 
-    plt.savefig("box.png", dpi=200)
+    plt.savefig("save_folder/box.png", dpi=200)
