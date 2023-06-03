@@ -112,11 +112,11 @@ def evaluate(model):
 if __name__ == "__main__":
     model = SSD_Model(input_shape, class_amount, max_output=max_output)
 
-    # dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train", "datasets/mahjong detection for MjT.v4-resize.tensorflow/train"], [convert_class_SG, convert_class_MjT])
-    # retrain(model, dataset, training_iterations)
+    dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train", "datasets/mahjong detection for MjT.v4-resize.tensorflow/train"], [convert_class_SG, convert_class_MjT])
+    retrain(model, dataset, training_iterations)
 
-    # model.save_model("model")
-    # model.plot_metrics()
+    model.save_model("model")
+    model.plot_metrics()
 
     img_path = "datasets/SG-mahjong.v1i.tensorflow/test/local_sg_mahjong_with_animal_tiles_travel_size_1551811793_7e51a0d2_progressive_jpg.rf.0d5c4a5f78e69e58dc9788ae8d89e67d.jpg"
     infos = inference(model, img_path)
