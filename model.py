@@ -80,7 +80,7 @@ class SSD_Model:
 
 		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "locations_mean_absolute_error": [], "confidences_accuracy": []}
 
-	def postprocessing(self, boxes, scores, iou_threshold=0.5, score_threshold=0.1):
+	def postprocessing(self, boxes, scores, iou_threshold=0.5, score_threshold=0.18):
 		boxes = tf.convert_to_tensor(boxes, dtype="float32")
 		classes = tf.argmax(scores, axis=1)
 		defaults = self.default_boxes
