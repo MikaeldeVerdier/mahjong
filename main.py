@@ -69,9 +69,11 @@ def prepare_dataset(model, paths, convert_classes):
                     offsets = [[b_box.create_offset(box) for box in matched_boxes] for b_box, matched_boxes in zip(b_boxes, boxes)]
 
                     locations = np.zeros((len(model.default_boxes), 4))
-                    locations[indices] = offsets  # np.eye?
+                    for index, offset in zip(indices, offsets):
+                        locations[index] = offset  # np.eye?
                     confidences = np.zeros((len(model.default_boxes), class_amount), dtype="int32")
-                    confidences[indices, class_indices] = 1
+                    for index, class_index in zip(indices, class_indices):
+                        confidences[index, class_index] = 1
                     # could maybe do one-hot encoding here
 
                     data = [preprocess_image(img_path), locations, confidences]

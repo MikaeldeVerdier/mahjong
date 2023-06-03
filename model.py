@@ -112,11 +112,12 @@ class SSD_Model:
 			matches.append(np.array([np.argmax(gt_ious)]))
 
 		threshold = 0.5
-		for box in self.default_boxes:
+		for i, box in enumerate(self.default_boxes):
 			def_ious = [box.calc_iou(gt_box) for gt_box in gt_boxes]
 
 			if max(def_ious) > threshold:
-				matches.append(np.where(np.array(def_ious) > threshold)[0])
+				indices = np.argmax(def_ious)
+				matches[indices] = np.append(matches[indices], i)
 
 		boxes = [[self.default_boxes[idx] for idx in gt_box_matches] for gt_box_matches in matches]
 
