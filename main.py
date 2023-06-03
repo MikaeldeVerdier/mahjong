@@ -66,7 +66,7 @@ def prepare_dataset(model, paths, convert_classes):
                     img_path = os.path.join(path, a[i][0])
 
                     indices, boxes = model.match_boxes(b_boxes)
-                    offsets = [location.create_offset(box) for location in b_boxes for box in boxes]
+                    offsets = [[b_box.create_offset(box) for box in matched_boxes] for b_box, matched_boxes in zip(b_boxes, boxes)]
 
                     locations = np.zeros((len(model.default_boxes), 4))
                     locations[indices] = offsets  # np.eye?
