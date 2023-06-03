@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+from PIL import Image
+
 from matplotlib.patches import Rectangle
 
 def convert_class_MjT(class_name):
@@ -66,12 +68,18 @@ def convert_class_SG(class_name):
 
 
 # Incorrect
-def plot_b_boxes(img, b_boxes):
-    _, ax = plt.subplots()
+def plot_info(img, infos):
+    _, ax = plt.subplots(1)
 
     ax.imshow(img)
 
-    for b_box in b_boxes:
-        ax.add_patch(Rectangle((b_box.abs_coords[0], b_box.abs_coords[1]), b_box.size_coords[2], b_box.size_coords[3]))
+    for info in infos:
+        top_left_x, top_left_y = info[1].abs_coords[:2]
+        width, height = info[1].size_coords[2:]
+
+        rect = Rectangle((top_left_x, top_left_y), width, height, edgecolor="r", facecolor="none")
+        ax.add_patch(rect)
+
+        ax.text(top_left_x + 5, top_left_y - 7, f"{info[0]} ({info[2]:.5f})", fontsize=5, backgroundcolor="y")
 
     plt.savefig("box.png", dpi=200)

@@ -1,4 +1,5 @@
 import json
+import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -79,7 +80,7 @@ class SSD_Model:
 
 		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "locations_mean_absolute_error": [], "confidences_accuracy": []}
 
-	def postprocessing(self, boxes, scores, iou_threshold=0.5, score_threshold=0.01):
+	def postprocessing(self, boxes, scores, iou_threshold=0.5, score_threshold=0.1):
 		boxes = tf.convert_to_tensor(boxes, dtype="float32")
 		classes = tf.argmax(scores, axis=1)
 		defaults = self.default_boxes
@@ -133,11 +134,17 @@ class SSD_Model:
 		with open("save_folder/save.json", "w") as f:
 			f.write(json.dumps(self.metrics))
 
+		with open("save_folder/default_boxes", "wb") as f:
+			pickle.dump(self.default_boxes, f)
+
 	def load_model(self, name):
 		self.model = load_model(f"save_folder/{name}")
 
 		with open("save_folder/save.json", "r") as f:
 			self.metrics = json.loads(f.read())
+		
+		with open("save_folder/default_boxes", "rb") as f:
+			self.default_boxes = pickle.load(f)
 
 	def plot_model(self):
 		try:

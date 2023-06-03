@@ -4,7 +4,7 @@ import random
 import numpy as np
 from PIL import Image
 
-from funcs import convert_class_SG, convert_class_MjT, plot_b_boxes
+from funcs import convert_class_SG, convert_class_MjT, plot_info
 from model import SSD_Model
 from default_box import CellBox
 
@@ -22,7 +22,7 @@ class_amount = len(classes)
 input_shape = (300, 300, 3)
 max_output = 100
 batch_size = 256
-training_iterations = 10
+training_iterations = 10000
 
 def preprocess_image(path):
     img = Image.open(path)
@@ -98,11 +98,9 @@ def inference(model, path):
 
     found_classes, found_boxes, confs = model.get_preds(image)
     labeled_classes = np.array(classes)[found_classes]
+    scaled_boxes = [CellBox(box) for box in found_boxes * np.tile(input_shape[:2], (len(found_boxes), 2))]
 
-    class_infos = list(zip(labeled_classes, found_boxes, confs))
-
-    # b_boxes = [CellBox(size_coords=(0.5, 0.5, 0.9, 0.9))]  # [CellBox(size_coords=found_box) for found_box in found_boxes]
-    # plot_b_boxes(Image.open(path), b_boxes)
+    class_infos = list(zip(labeled_classes, scaled_boxes, confs))
 
     return class_infos
 
@@ -114,10 +112,14 @@ def evaluate(model):
 if __name__ == "__main__":
     model = SSD_Model(input_shape, class_amount, max_output=max_output)
 
-    infos = inference(model, "save_folder/model_architecture.png")
+    # dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train", "datasets/mahjong detection for MjT.v4-resize.tensorflow/train"], [convert_class_SG, convert_class_MjT])
+    # retrain(model, dataset, training_iterations)
 
-    dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/test", "datasets/mahjong detection for MjT.v4-resize.tensorflow/test"], [convert_class_SG, convert_class_MjT])
-    retrain(model, dataset, training_iterations)
+    # model.save_model("model")
+    # model.plot_metrics()
 
-    model.save_model("model")
-    model.plot_metrics()
+    img_path = "datasets/SG-mahjong.v1i.tensorflow/test/local_sg_mahjong_with_animal_tiles_travel_size_1551811793_7e51a0d2_progressive_jpg.rf.0d5c4a5f78e69e58dc9788ae8d89e67d.jpg"
+    infos = inference(model, img_path)
+
+    img = Image.open(img_path).resize(input_shape[:-1])
+    plot_info(img, infos)
