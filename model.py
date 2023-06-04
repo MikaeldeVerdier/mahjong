@@ -15,11 +15,10 @@ from tensorflow.keras.optimizers import SGD
 from default_box import default_boxes
 
 class SSD_Model:
-	def __init__(self, inp_shape, class_amount, max_output=25, lr=1e-1, momentum=0.9, confidence_weight=0.7, load=False):
+	def __init__(self, inp_shape, class_amount, max_output=25, lr=1e-6, momentum=0.9, load=False):
 		self.inp_shape = inp_shape
 		self.class_amount = class_amount
 		self.max_output = max_output
-		self.confidence_weight = confidence_weight
 
 		if load is not False:
 			self.load_model(load)
@@ -73,7 +72,7 @@ class SSD_Model:
 		class_predictions = Concatenate(axis=1, name="confidences")(head_outputs[1])
 
 		self.model = Model(inputs=[inp], outputs=[location_predictions, class_predictions])
-		self.model.compile(loss={"locations": Huber(delta=0.9), "confidences": CategoricalCrossentropy(from_logits=True)}, optimizer=SGD(learning_rate=lr, momentum=momentum), metrics={"locations": MeanAbsoluteError(), "confidences": Accuracy()}, loss_weights={"locations": 1, "confidences": 500})
+		self.model.compile(loss={"locations": Huber(delta=0.9), "confidences": CategoricalCrossentropy(from_logits=True)}, optimizer=SGD(learning_rate=lr, momentum=momentum), metrics={"locations": MeanAbsoluteError(), "confidences": Accuracy()})
 
 		self.plot_model()
 		self.model.summary()

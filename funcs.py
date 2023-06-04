@@ -68,7 +68,7 @@ def convert_class_SG(class_name):
 
 
 # Incorrect
-def plot_info(img, infos):
+def plot_infos(img, infos):
     _, ax = plt.subplots(1)
 
     ax.imshow(img)

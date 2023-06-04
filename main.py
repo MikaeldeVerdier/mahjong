@@ -4,7 +4,7 @@ import random
 import numpy as np
 from PIL import Image
 
-from funcs import convert_class_SG, convert_class_MjT, plot_info
+from funcs import convert_class_SG, convert_class_MjT, plot_infos
 from model import SSD_Model
 from default_box import CellBox
 
@@ -122,4 +122,4 @@ if __name__ == "__main__":
     infos = inference(model, img_path)
 
     img = Image.open(img_path).resize(input_shape[:-1])
-    plot_info(img, infos)
+    plot_infos(img, infos)
