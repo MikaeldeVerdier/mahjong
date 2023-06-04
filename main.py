@@ -125,3 +125,4 @@ if __name__ == "__main__":
 
     img = Image.open(img_path).resize(input_shape[:-1])
     plot_infos(img, infos)
+    pass
