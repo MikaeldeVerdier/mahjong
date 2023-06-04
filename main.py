@@ -65,14 +65,16 @@ def prepare_dataset(model, paths, convert_classes):
                 if b_boxes and class_indices:
                     img_path = os.path.join(path, a[i][0])
 
-                    indices, boxes = model.match_boxes(b_boxes)
-                    offsets = [[b_box.create_offset(box) for box in matched_boxes] for b_box, matched_boxes in zip(b_boxes, boxes)]
+                    matches = model.match_boxes(b_boxes)
 
                     locations = np.zeros((len(model.default_boxes), 4))
                     confidences = np.zeros((len(model.default_boxes), class_amount), dtype="int32")
-                    for index, offset, class_index in zip(indices, offsets, class_indices):
-                        locations[index] = offset
-                        confidences[index, class_index] = 1
+
+                    for def_match, gt_match in matches:
+                        offset = model.default_boxes[def_match].create_offset(b_boxes[gt_match])
+                        
+                        locations[def_match] = offset
+                        confidences[def_match, class_indices[gt_match]] = 1
 
                     data = [preprocess_image(img_path), locations, confidences]
                     dataset.append(data)

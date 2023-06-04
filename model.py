@@ -106,21 +106,18 @@ class SSD_Model:
 
 	def match_boxes(self, gt_boxes, threshold=0.5):
 		matches = []
-		for gt_box in gt_boxes:
+		for i, gt_box in enumerate(gt_boxes):
 			gt_ious = [box.calc_iou(gt_box) for box in self.default_boxes]
 
-			matches.append(np.array([np.argmax(gt_ious)]))
+			matches.append((np.argmax(gt_ious), i))
 
 		for i, box in enumerate(self.default_boxes):
 			def_ious = [box.calc_iou(gt_box) for gt_box in gt_boxes]
 
 			if max(def_ious) > threshold:
-				indices = np.argmax(def_ious)
-				matches[indices] = np.append(matches[indices], i)
+				matches.append((i, np.argmax(def_ious)))
 
-		boxes = [[self.default_boxes[idx] for idx in gt_box_matches] for gt_box_matches in matches]
-
-		return np.transpose(matches), np.transpose(boxes)
+		return matches
 
 	def train(self, x, y, epochs):
 		fit = self.model.fit(x, y, epochs=epochs)
