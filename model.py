@@ -51,7 +51,7 @@ class SSD_Model:
 		#
 
 		self.default_boxes = []
-		aspect_ratios = [0.75, 1.33]
+		aspect_ratios = [0.75, 1, 1.33]
 
 		head_outputs = [[], []]
 		for k, output in enumerate(outputs, 1):
@@ -107,12 +107,12 @@ class SSD_Model:
 	def match_boxes(self, gt_boxes, threshold=0.5):
 		matches = []
 		for i, gt_box in enumerate(gt_boxes):
-			gt_ious = [box.calc_iou(gt_box) for box in self.default_boxes]
+			gt_ious = [box.calculate_iou(gt_box) for box in self.default_boxes]
 
 			matches.append((np.argmax(gt_ious), i))
 
 		for i, box in enumerate(self.default_boxes):
-			def_ious = [box.calc_iou(gt_box) for gt_box in gt_boxes]
+			def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
 
 			if max(def_ious) > threshold:
 				matches.append((i, np.argmax(def_ious)))
@@ -130,7 +130,7 @@ class SSD_Model:
 		with open("save_folder/save.json", "w") as f:
 			f.write(json.dumps(self.metrics))
 
-		with open("save_folder/default_boxes", "wb") as f:
+		with open("save_folder/default_boxes.pkl", "wb") as f:
 			pickle.dump(self.default_boxes, f)
 
 	def load_model(self, name):
@@ -139,7 +139,7 @@ class SSD_Model:
 		with open("save_folder/save.json", "r") as f:
 			self.metrics = json.loads(f.read())
 		
-		with open("save_folder/default_boxes", "rb") as f:
+		with open("save_folder/default_boxes.pkl", "rb") as f:
 			self.default_boxes = pickle.load(f)
 
 	def plot_model(self):

@@ -34,7 +34,24 @@ def preprocess_image(path):
     return img
 
 
-def prepare_dataset(model, paths, convert_classes):
+def prepare_training(model, image, b_boxes, class_indices):
+    image = preprocess_image(image)
+
+    matches = model.match_boxes(b_boxes)
+
+    locations = np.zeros((len(model.default_boxes), 4))
+    confidences = np.zeros((len(model.default_boxes), class_amount), dtype="int32")
+
+    for def_match, gt_match in matches:
+        offset = model.default_boxes[def_match].create_offset(b_boxes[gt_match])
+
+        locations[def_match] = offset
+        confidences[def_match, class_indices[gt_match]] = 1
+
+    return image, locations, confidences
+
+
+def prepare_dataset(model, paths, convert_classes, training=False):
     dataset = []
     for path, convert_class in zip(paths, convert_classes):
         with open(f"{path}/_annotations.csv", "r") as csvfile:
@@ -45,8 +62,8 @@ def prepare_dataset(model, paths, convert_classes):
 
             i = 0
             while i < len(a):
-                b_boxes = []
-                class_indices = []
+                locations = []
+                confidences = []
 
                 i2 = 0
                 for img in a[i:]:
@@ -55,28 +72,20 @@ def prepare_dataset(model, paths, convert_classes):
 
                     class_name = convert_class(img[3])
                     if class_name in classes:
-                        b_boxes.append(CellBox(abs_coords=map(lambda coord: float(coord) / float(img[1 + int(coord) % 2]), img[4:])))
+                        locations.append(CellBox(abs_coords=map(lambda coord: float(coord) / float(img[1 + int(coord) % 2]), img[4:])))
 
                         class_index = classes.index(class_name)
-                        class_indices.append(class_index)
+                        confidences.append(class_index)
 
                     i2 += 1
 
-                if b_boxes and class_indices:
-                    img_path = os.path.join(path, a[i][0])
+                if locations and confidences:
+                    image = os.path.join(path, a[i][0])
 
-                    matches = model.match_boxes(b_boxes)
+                    if training:
+                        image, locations, confidences = prepare_training(model, image, locations, confidences)
 
-                    locations = np.zeros((len(model.default_boxes), 4))
-                    confidences = np.zeros((len(model.default_boxes), class_amount), dtype="int32")
-
-                    for def_match, gt_match in matches:
-                        offset = model.default_boxes[def_match].create_offset(b_boxes[gt_match])
-                        
-                        locations[def_match] = offset
-                        confidences[def_match, class_indices[gt_match]] = 1
-
-                    data = [preprocess_image(img_path), locations, confidences]
+                    data = [image, locations, confidences]
                     dataset.append(data)
 
                 i += i2
@@ -107,18 +116,21 @@ def inference(model, path):
     return class_infos
 
 
-def evaluate(model):
+def evaluate(model, testing_dataset):
     pass
 
 
 if __name__ == "__main__":
     model = SSD_Model(input_shape, class_amount, max_output=max_output)
 
-    dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train", "datasets/mahjong detection for MjT.v4-resize.tensorflow/train"], [convert_class_SG, convert_class_MjT])
-    retrain(model, dataset, training_iterations)
+    training_dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train", "datasets/mahjong detection for MjT.v4-resize.tensorflow/train"], [convert_class_SG, convert_class_MjT], training=True)
+    retrain(model, training_dataset, training_iterations)
 
     model.save_model("model")
     model.plot_metrics()
+
+    # testing_dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/test", "datasets/mahjong detection for MjT.v4-resize.tensorflow/test"], [convert_class_SG, convert_class_MjT])
+    # evaluate(model, testing_dataset)
 
     img_path = "datasets/SG-mahjong.v1i.tensorflow/test/local_sg_mahjong_with_animal_tiles_travel_size_1551811793_7e51a0d2_progressive_jpg.rf.0d5c4a5f78e69e58dc9788ae8d89e67d.jpg"
     infos = inference(model, img_path)

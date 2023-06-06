@@ -40,7 +40,7 @@ class CellBox:
 		self.size_coords = (cx, cy, w, h)
 		self.abs_coords = (min_x, min_y, max_x, max_y)
 
-	def calc_iou(self, other_box):
+	def calculate_iou(self, other_box):
 		x1 = max(self.abs_coords[0], other_box.abs_coords[0])
 		y1 = max(self.abs_coords[1], other_box.abs_coords[1])
 		x2 = min(self.abs_coords[2], other_box.abs_coords[2])
