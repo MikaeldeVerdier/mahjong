@@ -25,15 +25,20 @@ class SSD_Model:
 			return
 
 		base_network = VGG16(include_top=False, weights="imagenet", input_shape=inp_shape)
-		frozen_layer_amount = 5
-		for layer in base_network.layers[:frozen_layer_amount]:
-			layer.trainable = False
-		# base_network.trainable = False
+		# frozen_layer_amount = 5
+		# for layer in base_network.layers[:frozen_layer_amount]:
+		# 	layer.trainable = False
+		base_network.trainable = False
 
-		inp = Input(shape=self.inp_shape)
+		# inp = Input(shape=self.inp_shape)
+
 		outputs = []
 
-		x = base_network(inp)
+		# x = base_network(inp)
+		x = base_network.get_layer("block4_conv3").output
+		outputs.append(x)
+
+		x = base_network.get_layer("block5_conv3").output
 		outputs.append(x)
 
 		# Auxiliary layers
@@ -43,6 +48,10 @@ class SSD_Model:
 
 		x = Conv2D(filters=128, kernel_size=(1, 1), strides=(1, 1), activation="relu")(x)
 		x = Conv2D(filters=256, kernel_size=(3, 3), strides=(2, 2), padding="same", activation="relu")(x)
+		outputs.append(x)
+
+		x = Conv2D(filters=128, kernel_size=(1, 1), strides=(1, 1), activation="relu")(x)
+		x = Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), activation="relu")(x)
 		outputs.append(x)
 
 		x = Conv2D(filters=128, kernel_size=(1, 1), strides=(1, 1), activation="relu")(x)
@@ -71,7 +80,7 @@ class SSD_Model:
 		location_predictions = Concatenate(axis=1, name="locations")(head_outputs[0])
 		class_predictions = Concatenate(axis=1, name="confidences")(head_outputs[1])
 
-		self.model = Model(inputs=[inp], outputs=[location_predictions, class_predictions])
+		self.model = Model(inputs=[base_network.input], outputs=[location_predictions, class_predictions])
 		self.model.compile(loss={"locations": Huber(), "confidences": CategoricalCrossentropy(from_logits=True)}, optimizer=SGD(learning_rate=lr, momentum=momentum), metrics={"locations": MeanAbsoluteError(), "confidences": Accuracy()})
 
 		self.plot_model()
