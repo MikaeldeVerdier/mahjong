@@ -47,6 +47,9 @@ def prepare_training(model, image, b_boxes, class_indices):
 
         locations[def_match] = offset
         confidences[def_match, class_indices[gt_match]] = 1
+    
+    indices = np.where(~np.array([1 in sub_arr for sub_arr in confidences]))
+    confidences[indices, 0] = 1
 
     return image, locations, confidences
 
