@@ -34,28 +34,31 @@ class SSD_Model:
 
 		outputs = []
 
-		# x = base_network(inp)
 		x = base_network.get_layer("block4_conv3").output
+		x = tf.math.l2_normalize(x)
 		outputs.append(x)
 
 		x = base_network.get_layer("block5_conv3").output
-		outputs.append(x)
 
 		# Auxiliary layers
-		x = Conv2D(filters=256, kernel_size=(1, 1), strides=(1, 1), activation="relu")(x)
+		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", activation="relu")(x)
+		x = Conv2D(filters=1024, kernel_size=(1, 1), activation="relu")(x)
+		outputs.append(x)
+
+		x = Conv2D(filters=256, kernel_size=(1, 1), activation="relu")(x)
 		x = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding="same", activation="relu")(x)
 		outputs.append(x)
 
-		x = Conv2D(filters=128, kernel_size=(1, 1), strides=(1, 1), activation="relu")(x)
+		x = Conv2D(filters=128, kernel_size=(1, 1), activation="relu")(x)
 		x = Conv2D(filters=256, kernel_size=(3, 3), strides=(2, 2), padding="same", activation="relu")(x)
 		outputs.append(x)
 
-		x = Conv2D(filters=128, kernel_size=(1, 1), strides=(1, 1), activation="relu")(x)
-		x = Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), activation="relu")(x)
+		x = Conv2D(filters=128, kernel_size=(1, 1), activation="relu")(x)
+		x = Conv2D(filters=256, kernel_size=(3, 3), activation="relu")(x)
 		outputs.append(x)
 
-		x = Conv2D(filters=128, kernel_size=(1, 1), strides=(1, 1), activation="relu")(x)
-		x = Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), activation="relu")(x)
+		x = Conv2D(filters=128, kernel_size=(1, 1), activation="relu")(x)
+		x = Conv2D(filters=256, kernel_size=(3, 3), activation="relu")(x)
 		outputs.append(x)
 		#
 
