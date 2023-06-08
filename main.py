@@ -20,7 +20,6 @@ classes = [
 class_amount = len(classes)
 
 input_shape = (300, 300, 3)
-max_output = 100
 batch_size = 256
 training_iterations = 10000
 
@@ -125,7 +124,7 @@ def evaluate(model, testing_dataset):
 
 
 if __name__ == "__main__":
-    model = SSD_Model(input_shape, class_amount, max_output=max_output)
+    model = SSD_Model(input_shape, class_amount)
 
     training_dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train", "datasets/mahjong detection for MjT.v4-resize.tensorflow/train"], [convert_class_SG, convert_class_MjT], training=True)
     retrain(model, training_dataset, training_iterations)

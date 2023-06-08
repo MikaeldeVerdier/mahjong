@@ -15,10 +15,9 @@ from tensorflow.keras.optimizers import SGD
 from default_box import default_boxes
 
 class SSD_Model:
-	def __init__(self, inp_shape, class_amount, max_output=25, lr=1e-4, momentum=0.9, load=False):
+	def __init__(self, inp_shape, class_amount, lr=1e-4, momentum=0.9, load=False):
 		self.inp_shape = inp_shape
 		self.class_amount = class_amount
-		self.max_output = max_output
 
 		if load is not False:
 			self.load_model(load)
@@ -91,13 +90,13 @@ class SSD_Model:
 
 		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "locations_mean_absolute_error": [], "confidences_accuracy": []}
 
-	def postprocessing(self, boxes, scores, iou_threshold=0.5, score_threshold=0.18):
+	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.18):
 		boxes = tf.convert_to_tensor(boxes, dtype="float32")
 		classes = tf.argmax(scores, axis=1)
 		defaults = self.default_boxes
 		scores = tf.reduce_max(scores, axis=1)
 
-		selected_indices = tf.image.non_max_suppression(boxes, scores, max_output_size=self.max_output, iou_threshold=iou_threshold, score_threshold=score_threshold)
+		selected_indices = tf.image.non_max_suppression(boxes, scores, max_output_size=max_output_size, iou_threshold=iou_threshold, score_threshold=score_threshold)
 
 		selected_boxes = tf.gather(boxes, selected_indices).numpy()
 		selected_classes = tf.gather(classes, selected_indices).numpy()
