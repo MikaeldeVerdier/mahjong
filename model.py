@@ -6,7 +6,7 @@ import tensorflow as tf
 
 from keras.utils.vis_utils import plot_model
 from tensorflow.keras.applications import VGG16
-from tensorflow.keras.layers import Activation, Concatenate, Conv2D, Input, Reshape
+from tensorflow.keras.layers import Activation, Concatenate, Conv2D, Reshape
 from tensorflow.keras.losses import CategoricalCrossentropy, Huber
 from tensorflow.keras.metrics import Accuracy, MeanAbsoluteError
 from tensorflow.keras.models import Model, load_model
@@ -15,9 +15,10 @@ from tensorflow.keras.optimizers import SGD
 from default_box import default_boxes
 
 class SSD_Model:
-	def __init__(self, inp_shape, class_amount, lr=1e-4, momentum=0.9, load=False):
+	def __init__(self, inp_shape, class_amount, lr=1e-4, momentum=0.9, hard_neg_ratio=3, load=False):
 		self.inp_shape = inp_shape
 		self.class_amount = class_amount
+		self.hard_neg_ratio = hard_neg_ratio
 
 		if load is not False:
 			self.load_model(load)
@@ -83,12 +84,33 @@ class SSD_Model:
 		class_predictions = Concatenate(axis=1, name="confidences")(head_outputs[1])
 
 		self.model = Model(inputs=[base_network.input], outputs=[location_predictions, class_predictions])
-		self.model.compile(loss={"locations": Huber(), "confidences": CategoricalCrossentropy(from_logits=True)}, optimizer=SGD(learning_rate=lr, momentum=momentum), metrics={"locations": MeanAbsoluteError(), "confidences": Accuracy()})
+		self.model.compile(loss={"locations": Huber(), "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=lr, momentum=momentum), metrics={"locations": MeanAbsoluteError(), "confidences": Accuracy()})
 
 		self.plot_model()
 		self.model.summary()
 
 		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "locations_mean_absolute_error": [], "confidences_accuracy": []}
+
+	def categorical_crossentropy_with_mask(self, y_true, y_pred):
+		losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
+		batch_size = tf.shape(losses)[0]
+
+		positives = tf.where(tf.not_equal(y_true[:, :, 0], 1))
+		negatives = tf.where(tf.equal(y_true[:, :, 0], 1))
+
+		neg_losses = tf.gather_nd(losses, negatives)
+		neg_losses = tf.reshape(neg_losses, (batch_size, -1))
+
+		sorted_losses = tf.sort(neg_losses, direction="DESCENDING")
+		k = len(positives) * self.hard_neg_ratio
+		top_k_neg_losses = sorted_losses[:, :k]
+		
+		pos_losses = tf.gather_nd(losses, positives)
+		pos_losses = tf.reshape(pos_losses, (batch_size, -1))
+
+		loss = tf.reduce_mean(tf.concat([top_k_neg_losses, pos_losses], axis=-1), axis=-1)
+
+		return loss
 
 	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.18):
 		boxes = tf.convert_to_tensor(boxes, dtype="float32")
@@ -132,6 +154,7 @@ class SSD_Model:
 
 	def train(self, x, y, epochs):
 		fit = self.model.fit(x, y, epochs=epochs)
+
 		for metric in self.metrics:
 			self.metrics[metric] += fit.history[metric]
 
@@ -145,7 +168,7 @@ class SSD_Model:
 			pickle.dump(self.default_boxes, f)
 
 	def load_model(self, name):
-		self.model = load_model(f"save_folder/{name}")
+		self.model = load_model(f"save_folder/{name}", custom_objects={"categorical_crossentropy_with_mask": self.categorical_crossentropy_with_mask})
 
 		with open("save_folder/save.json", "r") as f:
 			self.metrics = json.loads(f.read())

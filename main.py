@@ -36,19 +36,19 @@ def preprocess_image(path):
 def prepare_training(model, image, b_boxes, class_indices):
     image = preprocess_image(image)
 
-    matches = model.match_boxes(b_boxes)
+    pos_indices = model.match_boxes(b_boxes)
 
     locations = np.zeros((len(model.default_boxes), 4))
     confidences = np.zeros((len(model.default_boxes), class_amount), dtype="int32")
 
-    for def_match, gt_match in matches:
-        offset = model.default_boxes[def_match].create_offset(b_boxes[gt_match])
+    for pos_index, gt_match in pos_indices:
+        offset = model.default_boxes[pos_index].create_offset(b_boxes[gt_match])
 
-        locations[def_match] = offset
-        confidences[def_match, class_indices[gt_match]] = 1
+        locations[pos_index] = offset
+        confidences[pos_index, class_indices[gt_match]] = 1
 
     mask = np.ones(len(confidences), dtype="bool")
-    mask[np.array(matches)[:, 0]] = False
+    mask[np.array(pos_indices)[:, 0]] = False
     confidences[mask, 0] = 1
 
     return image, locations, confidences
@@ -126,7 +126,7 @@ def evaluate(model, testing_dataset):
 if __name__ == "__main__":
     model = SSD_Model(input_shape, class_amount)
 
-    training_dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train", "datasets/mahjong detection for MjT.v4-resize.tensorflow/train"], [convert_class_SG, convert_class_MjT], training=True)
+    training_dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train"], [convert_class_SG], training=True)
     retrain(model, training_dataset, training_iterations)
 
     model.save_model("model")
