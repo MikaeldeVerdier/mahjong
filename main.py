@@ -21,7 +21,7 @@ class_amount = len(classes)
 
 input_shape = (300, 300, 3)
 batch_size = 256
-training_iterations = 10000
+training_iterations = 1
 
 def preprocess_image(path):
     img = Image.open(path)
@@ -107,10 +107,10 @@ def retrain(model, dataset, iteration_amount, epochs=1):
             print(f"Training iteration {i} completed!")
 
 
-def inference(model, path):
+def inference(model, path, conf_threshold=0.1):
     image = preprocess_image(path)
 
-    found_classes, found_boxes, confs = model.get_preds(image)
+    found_classes, found_boxes, confs = model.get_preds(image, conf_threshold=conf_threshold)
     labeled_classes = np.array(classes)[found_classes]
     scaled_boxes = [CellBox(box) for box in found_boxes * np.tile(input_shape[:2], (len(found_boxes), 2))] if found_boxes else []
 
@@ -119,8 +119,25 @@ def inference(model, path):
     return class_infos
 
 
-def evaluate(model, testing_dataset):
-    pass
+def evaluate(model, dataset, iou_threshold=0.8, conf_threshold=0.01):
+    amount_true_pos = 0
+    amount_false_pos = 0
+    amount_false_neg = 0
+
+    for img, gt_boxes, gt_classes in dataset:
+        class_infos = inference(model, img, conf_threshold=conf_threshold)
+
+        for pred_class, box, _ in class_infos:
+            if any(box.calculate_iou(gt_box) >= iou_threshold and classes[gt_class] == pred_class for gt_class, gt_box in zip(gt_classes, gt_boxes)):
+                amount_true_pos += 1
+            else:
+                amount_false_pos += 1
+        
+        amount_false_neg += len(gt_boxes) - amount_true_pos
+
+    mAP = amount_true_pos / (amount_true_pos + amount_false_pos + amount_false_neg)
+
+    return mAP
 
 
 if __name__ == "__main__":
@@ -132,12 +149,13 @@ if __name__ == "__main__":
     model.save_model("model")
     model.plot_metrics()
 
-    # testing_dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/test", "datasets/mahjong detection for MjT.v4-resize.tensorflow/test"], [convert_class_SG, convert_class_MjT])
-    # evaluate(model, testing_dataset)
+    testing_dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/test"], [convert_class_SG])
+    mAP = evaluate(model, testing_dataset)
+    print(f"The model had an mAP of {mAP}")
 
-    img_path = "datasets/SG-mahjong.v1i.tensorflow/test/local_sg_mahjong_with_animal_tiles_travel_size_1551811793_7e51a0d2_progressive_jpg.rf.0d5c4a5f78e69e58dc9788ae8d89e67d.jpg"
-    infos = inference(model, img_path)
+    # img_path = "datasets/SG-mahjong.v1i.tensorflow/test/local_sg_mahjong_with_animal_tiles_travel_size_1551811793_7e51a0d2_progressive_jpg.rf.0d5c4a5f78e69e58dc9788ae8d89e67d.jpg"
+    # infos = inference(model, img_path)
 
-    img = Image.open(img_path).resize(input_shape[:-1])
-    plot_infos(img, infos)
+    # img = Image.open(img_path).resize(input_shape[:-1])
+    # plot_infos(img, infos)
     pass

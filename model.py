@@ -102,7 +102,7 @@ class SSD_Model:
 		neg_losses = tf.reshape(neg_losses, (batch_size, -1))
 
 		sorted_losses = tf.sort(neg_losses, direction="DESCENDING")
-		k = len(positives) * self.hard_neg_ratio
+		k = tf.cast(len(positives) * self.hard_neg_ratio, tf.int32)
 		top_k_neg_losses = sorted_losses[:, :k]
 		
 		pos_losses = tf.gather_nd(losses, positives)
@@ -112,7 +112,7 @@ class SSD_Model:
 
 		return loss
 
-	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.18):
+	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.1):
 		boxes = tf.convert_to_tensor(boxes, dtype="float32")
 		classes = tf.argmax(scores, axis=1)
 		defaults = self.default_boxes
@@ -127,11 +127,11 @@ class SSD_Model:
 
 		return selected_boxes, selected_classes, selected_defaults, selected_scores
 
-	def get_preds(self, data):
+	def get_preds(self, data, conf_threshold=0.1):
 		inp = tf.expand_dims(data, axis=0)
 		bbox_preds, class_preds = self.model.predict_on_batch(inp)
 
-		selected_boxes, selected_classes, selected_defaults, selected_scores = self.postprocessing(bbox_preds[0], class_preds[0])
+		selected_boxes, selected_classes, selected_defaults, selected_scores = self.postprocessing(bbox_preds[0], class_preds[0], score_threshold=conf_threshold)
 
 		bounding_boxes = [box.apply_offset(selected_box).abs_coords for box, selected_box in zip(selected_defaults, selected_boxes)]
 
