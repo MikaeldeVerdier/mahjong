@@ -21,7 +21,8 @@ class_amount = len(classes)
 
 input_shape = (300, 300, 3)
 batch_size = 256
-training_iterations = 1
+training_iterations = 1000
+epochs = 100
 
 def preprocess_image(path):
     img = Image.open(path)
@@ -96,7 +97,7 @@ def prepare_dataset(model, paths, convert_classes, training=False):
     return dataset
 
 
-def retrain(model, dataset, iteration_amount, epochs=1):
+def retrain(model, dataset, iteration_amount, epochs):
     for i in range(iteration_amount):
         x, y_loc, y_conf = zip(*random.sample(dataset, batch_size))
 
@@ -144,7 +145,7 @@ if __name__ == "__main__":
     model = SSD_Model(input_shape, class_amount)
 
     training_dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train"], [convert_class_SG], training=True)
-    retrain(model, training_dataset, training_iterations)
+    retrain(model, training_dataset, training_iterations, epochs)
 
     model.save_model("model")
     model.plot_metrics()

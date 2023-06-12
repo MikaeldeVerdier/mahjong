@@ -15,7 +15,7 @@ from tensorflow.keras.optimizers import SGD
 from default_box import default_boxes
 
 class SSD_Model:
-	def __init__(self, inp_shape, class_amount, lr=1e-4, momentum=0.9, hard_neg_ratio=3, load=False):
+	def __init__(self, inp_shape, class_amount, lr=1e-3, momentum=0.9, hard_neg_ratio=2, load=False):
 		self.inp_shape = inp_shape
 		self.class_amount = class_amount
 		self.hard_neg_ratio = hard_neg_ratio
@@ -108,7 +108,7 @@ class SSD_Model:
 		k = tf.cast(tf.shape(pos_losses)[1] * self.hard_neg_ratio, tf.int32)
 		top_neg_losses = sorted_losses[:, :k]
 
-		loss = tf.reduce_mean(tf.concat([top_neg_losses, pos_losses], axis=-1), axis=-1)
+		loss = tf.reduce_mean(tf.concat([pos_losses, top_neg_losses], axis=-1), axis=-1)
 
 		return loss
 
