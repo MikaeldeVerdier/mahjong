@@ -98,17 +98,17 @@ class SSD_Model:
 		positives = tf.where(tf.not_equal(y_true[:, :, 0], 1))
 		negatives = tf.where(tf.equal(y_true[:, :, 0], 1))
 
+		pos_losses = tf.gather_nd(losses, positives)
+		pos_losses = tf.reshape(pos_losses, (batch_size, -1))
+
 		neg_losses = tf.gather_nd(losses, negatives)
 		neg_losses = tf.reshape(neg_losses, (batch_size, -1))
 
 		sorted_losses = tf.sort(neg_losses, direction="DESCENDING")
-		k = tf.cast(len(positives) * self.hard_neg_ratio, tf.int32)
-		top_k_neg_losses = sorted_losses[:, :k]
-		
-		pos_losses = tf.gather_nd(losses, positives)
-		pos_losses = tf.reshape(pos_losses, (batch_size, -1))
+		k = tf.cast(tf.shape(pos_losses)[1] * self.hard_neg_ratio, tf.int32)
+		top_neg_losses = sorted_losses[:, :k]
 
-		loss = tf.reduce_mean(tf.concat([top_k_neg_losses, pos_losses], axis=-1), axis=-1)
+		loss = tf.reduce_mean(tf.concat([top_neg_losses, pos_losses], axis=-1), axis=-1)
 
 		return loss
 
