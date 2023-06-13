@@ -111,28 +111,28 @@ class SSD_Model:
 
 		return loss
 
-	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.1):
-		boxes = tf.convert_to_tensor(boxes, dtype="float32")
+	def postprocessing(self, offsets, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.1):
+		offsets = tf.convert_to_tensor(offsets, dtype="float32")
 		classes = tf.argmax(scores, axis=1)
 		defaults = self.default_boxes
 		scores = tf.reduce_max(scores, axis=1)
 
-		selected_indices = tf.image.non_max_suppression(boxes, scores, max_output_size=max_output_size, iou_threshold=iou_threshold, score_threshold=score_threshold)
+		selected_indices = tf.image.non_max_suppression(offsets, scores, max_output_size=max_output_size, iou_threshold=iou_threshold, score_threshold=score_threshold)
 
-		selected_boxes = tf.gather(boxes, selected_indices).numpy()
+		selected_offsets = tf.gather(offsets, selected_indices).numpy()
 		selected_classes = tf.gather(classes, selected_indices).numpy()
 		selected_defaults = np.take(defaults, selected_indices)
 		selected_scores = tf.gather(scores, selected_indices).numpy()
 
-		return selected_boxes, selected_classes, selected_defaults, selected_scores
+		return selected_offsets, selected_classes, selected_defaults, selected_scores
 
 	def get_preds(self, data, conf_threshold=0.1):
 		inp = np.expand_dims(data, axis=0)
-		bbox_preds, class_preds = self.model.predict_on_batch(inp)
+		offset_preds, class_preds = self.model.predict_on_batch(inp)
 
-		selected_boxes, selected_classes, selected_defaults, selected_scores = self.postprocessing(bbox_preds[0], class_preds[0], score_threshold=conf_threshold)
+		selected_offsets, selected_classes, selected_defaults, selected_scores = self.postprocessing(offset_preds[0], class_preds[0], score_threshold=conf_threshold)
 
-		bounding_boxes = [box.apply_offset(selected_box).abs_coords for box, selected_box in zip(selected_defaults, selected_boxes)]
+		bounding_boxes = [default_box.apply_offset(offset).abs_coords for default_box, offset in zip(selected_defaults, selected_offsets)]
 
 		return selected_classes, bounding_boxes, selected_scores
 
