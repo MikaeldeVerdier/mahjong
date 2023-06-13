@@ -66,7 +66,7 @@ class CellBox:
 			offset_coords = np.array(self.abs_coords) - np.array(other_box.abs_coords)
 
 		return offset_coords
-	
+
 	def apply_offset(self, offset, size_coords=True):
 		if size_coords:
 			other_box = CellBox(size_coords=np.array(self.size_coords) + np.array(offset))

@@ -21,8 +21,8 @@ class_amount = len(classes)
 
 input_shape = (300, 300, 3)
 batch_size = 256
-training_iterations = 1000
-epochs = 100
+training_iterations = 25
+epochs = 60
 
 def preprocess_image(path):
     img = Image.open(path)
@@ -34,16 +34,16 @@ def preprocess_image(path):
     return img
 
 
-def prepare_training(model, image, b_boxes, class_indices):
+def prepare_training(model, image, gt_boxes, class_indices):
     image = preprocess_image(image)
 
-    pos_indices = model.match_boxes(b_boxes)
+    pos_indices = model.match_boxes(gt_boxes)
 
     locations = np.zeros((len(model.default_boxes), 4))
     confidences = np.zeros((len(model.default_boxes), class_amount), dtype="int32")
 
     for pos_index, gt_match in pos_indices:
-        offset = model.default_boxes[pos_index].create_offset(b_boxes[gt_match])
+        offset = gt_boxes[gt_match].create_offset(model.default_boxes[pos_index])
 
         locations[pos_index] = offset
         confidences[pos_index, class_indices[gt_match]] = 1

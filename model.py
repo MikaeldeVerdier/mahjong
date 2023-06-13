@@ -15,7 +15,7 @@ from tensorflow.keras.optimizers import SGD
 from default_box import default_boxes
 
 class SSD_Model:
-	def __init__(self, inp_shape, class_amount, lr=1e-3, momentum=0.9, hard_neg_ratio=2, load=False):
+	def __init__(self, inp_shape, class_amount, lr=1e-3, momentum=0.9, hard_neg_ratio=3, load=False):
 		self.inp_shape = inp_shape
 		self.class_amount = class_amount
 		self.hard_neg_ratio = hard_neg_ratio
@@ -95,13 +95,12 @@ class SSD_Model:
 		losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
 		batch_size = tf.shape(losses)[0]
 
-		positives = tf.where(tf.not_equal(y_true[:, :, 0], 1))
-		negatives = tf.where(tf.equal(y_true[:, :, 0], 1))
-
-		pos_losses = tf.gather_nd(losses, positives)
+		positive_indices = tf.where(tf.not_equal(y_true[:, :, 0], 1))
+		pos_losses = tf.gather_nd(losses, positive_indices)
 		pos_losses = tf.reshape(pos_losses, (batch_size, -1))
 
-		neg_losses = tf.gather_nd(losses, negatives)
+		negative_indices = tf.where(tf.equal(y_true[:, :, 0], 1))
+		neg_losses = tf.gather_nd(losses, negative_indices)
 		neg_losses = tf.reshape(neg_losses, (batch_size, -1))
 
 		sorted_losses = tf.sort(neg_losses, direction="DESCENDING")
@@ -128,7 +127,7 @@ class SSD_Model:
 		return selected_boxes, selected_classes, selected_defaults, selected_scores
 
 	def get_preds(self, data, conf_threshold=0.1):
-		inp = tf.expand_dims(data, axis=0)
+		inp = np.expand_dims(data, axis=0)
 		bbox_preds, class_preds = self.model.predict_on_batch(inp)
 
 		selected_boxes, selected_classes, selected_defaults, selected_scores = self.postprocessing(bbox_preds[0], class_preds[0], score_threshold=conf_threshold)
@@ -144,15 +143,20 @@ class SSD_Model:
 
 			matches.append((np.argmax(gt_ious), i))
 
-		for i, box in enumerate(self.default_boxes):
-			def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
+		# for i, box in enumerate(self.default_boxes):
+		# 	def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
 
-			if max(def_ious) > threshold:
-				matches.append((i, np.argmax(def_ious)))
+		# 	if max(def_ious) > threshold:
+		# 		matches.append((i, np.argmax(def_ious)))
 
 		return matches
 
 	def train(self, x, y, epochs):
+		# y_true = y["confidences"]
+		# y_pred = self.model.predict(x)[1]
+
+		# losses = self.categorical_crossentropy_with_mask(y_true, y_pred)
+
 		fit = self.model.fit(x, y, epochs=epochs)
 
 		for metric in self.metrics:
