@@ -112,9 +112,12 @@ class SSD_Model:
 		return loss
 
 	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.1):
-		boxes = tf.convert_to_tensor(boxes, dtype="float32")
 		classes = tf.argmax(scores, axis=1)
-		scores = tf.reduce_max(scores, axis=1)
+		non_backgrounds = classes != 0
+
+		boxes = tf.convert_to_tensor(np.array(boxes)[non_backgrounds], dtype="float32")
+		classes = classes[non_backgrounds]
+		scores = tf.reduce_max(scores[non_backgrounds], axis=1)
 
 		selected_indices = tf.image.non_max_suppression(boxes, scores, max_output_size=max_output_size, iou_threshold=iou_threshold, score_threshold=score_threshold)
 

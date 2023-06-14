@@ -113,7 +113,7 @@ def inference(model, path, conf_threshold=0.1):
 
     found_classes, found_boxes, confs = model.get_preds(image, conf_threshold=conf_threshold)
     labeled_classes = np.array(classes)[found_classes]
-    scaled_boxes = [CellBox(box) for box in found_boxes * np.tile(input_shape[:2], (len(found_boxes), 2))] if found_boxes else []
+    scaled_boxes = [CellBox(box) for box in found_boxes * np.tile(input_shape[:2], (len(found_boxes), 2))] if np.any(found_boxes) else []
 
     class_infos = list(zip(labeled_classes, scaled_boxes, confs))
 
