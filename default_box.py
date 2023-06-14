@@ -61,11 +61,14 @@ class CellBox:
 
 	def create_offset(self, other_box, size_coords=True):
 		if size_coords:
-			offset_coords = np.array(self.size_coords) - np.array(other_box.size_coords)
-		else:
-			offset_coords = np.array(self.abs_coords) - np.array(other_box.abs_coords)
+			cx = (self.size_coords[0] - other_box.size_coords[0]) / other_box.size_coords[2]
+			cy = (self.size_coords[1] - other_box.size_coords[1]) / other_box.size_coords[3]
+			w = np.log(self.size_coords[2] / other_box.size_coords[2])
+			h = np.log(self.size_coords[3] / other_box.size_coords[3])
 
-		return offset_coords
+			return (cx, cy, w, h)
+		else:
+			return CellBox(self.create_offset(other_box, size_coords=True)).abs_coords
 
 	def apply_offset(self, offset, size_coords=True):
 		if size_coords:
