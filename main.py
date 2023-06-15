@@ -4,6 +4,7 @@ import random
 import numpy as np
 from PIL import Image
 
+import config
 from funcs import convert_class_SG, convert_class_MjT, plot_infos
 from model import SSD_Model
 from default_box import CellBox
@@ -20,9 +21,6 @@ classes = [
 class_amount = len(classes)
 
 input_shape = (300, 300, 3)
-batch_size = 256
-training_iterations = 25
-epochs = 60
 
 def preprocess_image(path):
     img = Image.open(path)
@@ -43,7 +41,7 @@ def prepare_training(model, image, gt_boxes, class_indices):
     confidences = np.zeros((len(model.default_boxes), class_amount), dtype="int32")
 
     for pos_index, gt_match in pos_indices:
-        offset = gt_boxes[gt_match].calculate_target(model.default_boxes[pos_index])
+        offset = gt_boxes[gt_match].calculate_offset(model.default_boxes[pos_index])
 
         locations[pos_index] = offset
         confidences[pos_index, class_indices[gt_match]] = 1
@@ -99,7 +97,7 @@ def prepare_dataset(model, paths, convert_classes, training=False):
 
 def retrain(model, dataset, iteration_amount, epochs):
     for i in range(iteration_amount):
-        x, y_loc, y_conf = zip(*random.sample(dataset, batch_size))
+        x, y_loc, y_conf = zip(*random.sample(dataset, config.BATCH_SIZE))
 
         x = np.array(x)
         y = {"locations": np.array(y_loc), "confidences": np.array(y_conf)}
@@ -107,6 +105,9 @@ def retrain(model, dataset, iteration_amount, epochs):
 
         if not int(i  % (iteration_amount / 10)):
             print(f"Training iteration {i} completed!")
+        
+        if not int(i % config.SAVING_FREQUENCY):
+            model.save_model("model")
 
 
 def inference(model, path, conf_threshold=0.1):
@@ -146,7 +147,7 @@ if __name__ == "__main__":
     model = SSD_Model(input_shape, class_amount)
 
     training_dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train"], [convert_class_SG], training=True)
-    retrain(model, training_dataset, training_iterations, epochs)
+    retrain(model, training_dataset, config.TRAINING_ITERATIONS, config.EPOCHS)
 
     model.save_model("model")
     model.plot_metrics()

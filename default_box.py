@@ -40,6 +40,9 @@ class CellBox:
 		self.size_coords = (cx, cy, w, h)
 		self.abs_coords = (min_x, min_y, max_x, max_y)
 
+	def __hash__(self):
+		return hash(self.abs_coords)
+
 	def calculate_iou(self, other_box):
 		x1 = max(self.abs_coords[0], other_box.abs_coords[0])
 		y1 = max(self.abs_coords[1], other_box.abs_coords[1])
@@ -59,7 +62,7 @@ class CellBox:
 		
 		return iou
 
-	def calculate_target(self, other_box):
+	def calculate_offset(self, other_box):
 		cx = (self.size_coords[0] - other_box.size_coords[0]) / other_box.size_coords[2]
 		cy = (self.size_coords[1] - other_box.size_coords[1]) / other_box.size_coords[3]
 		w = np.log(self.size_coords[2] / other_box.size_coords[2])
