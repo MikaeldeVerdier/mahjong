@@ -8,7 +8,7 @@ from keras.utils.vis_utils import plot_model
 from tensorflow.keras.applications import VGG16
 from tensorflow.keras.layers import Activation, Concatenate, Conv2D, Reshape
 from tensorflow.keras.losses import CategoricalCrossentropy, Huber
-from tensorflow.keras.metrics import Accuracy, MeanAbsoluteError
+from tensorflow.keras.metrics import MeanSquaredError, Accuracy
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.optimizers import SGD
 
@@ -84,7 +84,7 @@ class SSD_Model:
 		class_predictions = Concatenate(axis=1, name="confidences")(head_outputs[1])
 
 		self.model = Model(inputs=[base_network.input], outputs=[location_predictions, class_predictions])
-		self.model.compile(loss={"locations": Huber(), "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=lr, momentum=momentum), metrics={"locations": MeanAbsoluteError(), "confidences": Accuracy()})
+		self.model.compile(loss={"locations": Huber(), "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=lr, momentum=momentum), metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
 
 		self.plot_model()
 		self.model.summary()
@@ -95,11 +95,13 @@ class SSD_Model:
 		losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
 		batch_size = tf.shape(losses)[0]
 
-		positive_indices = tf.where(tf.not_equal(y_true[:, :, 0], 1))
+		mask = tf.not_equal(y_true[:, :, 0], 1)
+
+		positive_indices = tf.where(mask)
 		pos_losses = tf.gather_nd(losses, positive_indices)
 		pos_losses = tf.reshape(pos_losses, (batch_size, -1))
 
-		negative_indices = tf.where(tf.equal(y_true[:, :, 0], 1))
+		negative_indices = tf.where(tf.logical_not(mask))
 		neg_losses = tf.gather_nd(losses, negative_indices)
 		neg_losses = tf.reshape(neg_losses, (batch_size, -1))
 
@@ -153,11 +155,6 @@ class SSD_Model:
 		return matches
 
 	def train(self, x, y, epochs):
-		# y_true = y["confidences"]
-		# y_pred = self.model.predict(x)[1]
-
-		# losses = self.categorical_crossentropy_with_mask(y_true, y_pred)
-
 		fit = self.model.fit(x, y, epochs=epochs)
 
 		for metric in self.metrics:

@@ -59,21 +59,19 @@ class CellBox:
 		
 		return iou
 
-	def create_offset(self, other_box, size_coords=True):
-		if size_coords:
-			cx = (self.size_coords[0] - other_box.size_coords[0]) / other_box.size_coords[2]
-			cy = (self.size_coords[1] - other_box.size_coords[1]) / other_box.size_coords[3]
-			w = np.log(self.size_coords[2] / other_box.size_coords[2])
-			h = np.log(self.size_coords[3] / other_box.size_coords[3])
+	def calculate_target(self, other_box):
+		cx = (self.size_coords[0] - other_box.size_coords[0]) / other_box.size_coords[2]
+		cy = (self.size_coords[1] - other_box.size_coords[1]) / other_box.size_coords[3]
+		w = np.log(self.size_coords[2] / other_box.size_coords[2])
+		h = np.log(self.size_coords[3] / other_box.size_coords[3])
 
-			return (cx, cy, w, h)
-		else:
-			return CellBox(self.create_offset(other_box, size_coords=True)).abs_coords
+		return (cx, cy, w, h)
 
-	def apply_offset(self, offset, size_coords=True):
-		if size_coords:
-			other_box = CellBox(size_coords=np.array(self.size_coords) + np.array(offset))
-		else:
-			other_box = CellBox(abs_coords=np.array(self.abs_coords) + np.array(offset))
+	def apply_offset(self, offset):
+		cx = self.size_coords[0] + offset[0] * self.size_coords[2]
+		cy = self.size_coords[1] + offset[1] * self.size_coords[3]
+		w = self.size_coords[2] * np.exp(offset[2])
+		h = self.size_coords[3] * np.exp(offset[3])
+		other_box = CellBox(size_coords=np.array([cx, cy, w, h]))
 
 		return other_box

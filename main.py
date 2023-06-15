@@ -43,7 +43,7 @@ def prepare_training(model, image, gt_boxes, class_indices):
     confidences = np.zeros((len(model.default_boxes), class_amount), dtype="int32")
 
     for pos_index, gt_match in pos_indices:
-        offset = gt_boxes[gt_match].create_offset(model.default_boxes[pos_index])
+        offset = gt_boxes[gt_match].calculate_target(model.default_boxes[pos_index])
 
         locations[pos_index] = offset
         confidences[pos_index, class_indices[gt_match]] = 1
@@ -101,8 +101,9 @@ def retrain(model, dataset, iteration_amount, epochs):
     for i in range(iteration_amount):
         x, y_loc, y_conf = zip(*random.sample(dataset, batch_size))
 
-        y = {"locations": np.array(y_loc, dtype="int32"), "confidences": np.array(y_conf)}
-        model.train([np.array(x)], y, epochs)
+        x = np.array(x)
+        y = {"locations": np.array(y_loc), "confidences": np.array(y_conf)}
+        model.train(x, y, epochs)
 
         if not int(i  % (iteration_amount / 10)):
             print(f"Training iteration {i} completed!")
