@@ -89,7 +89,7 @@ class SSD_Model:
 		self.plot_model()
 		self.model.summary()
 
-		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "locations_mean_absolute_error": [], "confidences_accuracy": []}
+		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "locations_mean_squared_error": [], "confidences_accuracy": []}
 
 	def huber_with_mask(self, y_true, y_pred):
 		losses = Huber(reduction="none")(y_true, y_pred)
