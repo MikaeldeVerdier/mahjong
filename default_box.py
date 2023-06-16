@@ -46,13 +46,10 @@ class CellBox:
 		x2 = min(self.abs_coords[2], other_box.abs_coords[2])
 		y2 = min(self.abs_coords[3], other_box.abs_coords[3])
 
-		if x2 < x1 or y2 < y1:
-			return 0
+		box_area = abs((self.abs_coords[2] - self.abs_coords[0]) * (self.abs_coords[3] - self.abs_coords[1]))
+		gt_box_area = abs((other_box.abs_coords[2] - other_box.abs_coords[0]) * (other_box.abs_coords[3] - other_box.abs_coords[1]))
 
-		box_area = (self.abs_coords[2] - self.abs_coords[0]) * (self.abs_coords[3] - self.abs_coords[1])
-		gt_box_area = (other_box.abs_coords[2] - other_box.abs_coords[0]) * (other_box.abs_coords[3] - other_box.abs_coords[1])
-
-		intersection_area = (x2 - x1) * (y2 - y1)
+		intersection_area = abs((x2 - x1) * (y2 - y1))
 		union_area = box_area + gt_box_area - intersection_area
 
 		iou = intersection_area / union_area
