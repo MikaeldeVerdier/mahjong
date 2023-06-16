@@ -60,8 +60,8 @@ class CellBox:
 		return iou
 
 	def calculate_offset(self, other_box):
-		cx = (self.size_coords[0] - other_box.size_coords[0]) / other_box.size_coords[2]
-		cy = (self.size_coords[1] - other_box.size_coords[1]) / other_box.size_coords[3]
+		cx = self.size_coords[0] - other_box.size_coords[0]
+		cy = self.size_coords[1] - other_box.size_coords[1]
 		w = np.log(self.size_coords[2] / other_box.size_coords[2])
 		h = np.log(self.size_coords[3] / other_box.size_coords[3])
 

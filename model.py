@@ -197,7 +197,7 @@ class SSD_Model:
 			pickle.dump(self.default_boxes, f)
 
 	def load_model(self, name):
-		self.model = load_model(f"save_folder/{name}", custom_objects={"categorical_crossentropy_with_mask": self.categorical_crossentropy_with_mask})
+		self.model = load_model(f"save_folder/{name}", custom_objects={"huber_with_mask": self.huber_with_mask, "categorical_crossentropy_with_mask": self.categorical_crossentropy_with_mask})
 
 		with open("save_folder/save.json", "r") as f:
 			self.metrics = json.loads(f.read())
