@@ -46,10 +46,10 @@ class CellBox:
 		x2 = min(self.abs_coords[2], other_box.abs_coords[2])
 		y2 = min(self.abs_coords[3], other_box.abs_coords[3])
 
-		box_area = abs((self.abs_coords[2] - self.abs_coords[0]) * (self.abs_coords[3] - self.abs_coords[1]))
-		gt_box_area = abs((other_box.abs_coords[2] - other_box.abs_coords[0]) * (other_box.abs_coords[3] - other_box.abs_coords[1]))
+		box_area = self.size_coords[2] * self.size_coords[3]
+		gt_box_area = other_box.size_coords[2] * other_box.size_coords[3]
 
-		intersection_area = abs((x2 - x1) * (y2 - y1))
+		intersection_area = (x2 - x1) * (y2 - y1)
 		union_area = box_area + gt_box_area - intersection_area
 
 		iou = intersection_area / union_area
@@ -65,10 +65,16 @@ class CellBox:
 		return (cx, cy, w, h)
 
 	def apply_offset(self, offset):
-		cx = self.size_coords[0] + offset[0] * self.size_coords[2]
-		cy = self.size_coords[1] + offset[1] * self.size_coords[3]
+		cx = self.size_coords[0] + offset[0]
+		cy = self.size_coords[1] + offset[1]
 		w = self.size_coords[2] * np.exp(offset[2])
 		h = self.size_coords[3] * np.exp(offset[3])
-		other_box = CellBox(size_coords=np.array([cx, cy, w, h]))
+		other_box = CellBox(size_coords=[cx, cy, w, h])
 
 		return other_box
+	
+	def scale_box(self, scalars):
+		new_abs_coords = self.abs_coords * np.tile(scalars, (2))
+		new_box = CellBox(abs_coords=new_abs_coords)
+
+		return new_box

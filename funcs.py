@@ -1,3 +1,4 @@
+import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 
@@ -67,7 +68,6 @@ def convert_class_SG(class_name):
     return tile
 
 
-# Incorrect
 def plot_infos(img, infos):
     _, ax = plt.subplots(1)
 

@@ -115,36 +115,41 @@ def inference(model, path, conf_threshold=0.1):
 
     found_classes, found_boxes, confs = model.get_preds(image, conf_threshold=conf_threshold)
     labeled_classes = np.array(classes)[found_classes]
-    scaled_boxes = [CellBox(box) for box in found_boxes * np.tile(input_shape[:2], (len(found_boxes), 2))] if np.any(found_boxes) else []
+    scaled_boxes = [CellBox(abs_coords=box).scale_box(input_shape[:-1]) for box in found_boxes]
 
     class_infos = list(zip(labeled_classes, scaled_boxes, confs))
 
     return class_infos
 
 
-def evaluate(model, dataset, iou_threshold=0.8, conf_threshold=0.01):
+def evaluate(model, dataset, iou_threshold=0.5, conf_threshold=0.5):
     amount_true_pos = 0
     amount_false_pos = 0
     amount_false_neg = 0
 
     for img, gt_boxes, gt_classes in dataset:
+        iteration_true_pos = 0
+
+        gt_boxes = [gt_box.scale_box(input_shape[:-1]) for gt_box in gt_boxes]
+
         class_infos = inference(model, img, conf_threshold=conf_threshold)
 
         for pred_class, box, _ in class_infos:
             if any(box.calculate_iou(gt_box) >= iou_threshold and classes[gt_class] == pred_class for gt_class, gt_box in zip(gt_classes, gt_boxes)):
-                amount_true_pos += 1
+                iteration_true_pos += 1
             else:
                 amount_false_pos += 1
         
-        amount_false_neg += len(gt_boxes) - amount_true_pos
+        amount_false_neg += len(gt_boxes) - iteration_true_pos
+        amount_true_pos += iteration_true_pos
 
-    mAP = amount_true_pos / (amount_true_pos + amount_false_pos + amount_false_neg)
+    metric_value = amount_true_pos / (amount_true_pos + amount_false_pos + amount_false_neg)
 
-    return mAP
+    return metric_value
 
 
 if __name__ == "__main__":
-    model = SSD_Model(input_shape, class_amount)
+    model = SSD_Model(input_shape, class_amount, load="model nonsized offsetcalc")
 
     training_dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train"], [convert_class_SG], training=True)
     retrain(model, training_dataset, config.TRAINING_ITERATIONS, config.EPOCHS)
@@ -153,8 +158,8 @@ if __name__ == "__main__":
     model.plot_metrics()
 
     testing_dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/test"], [convert_class_SG])
-    mAP = evaluate(model, testing_dataset)
-    print(f"The model had an mAP of {mAP}")
+    metric_value = evaluate(model, testing_dataset)
+    print(f"The model got a score of {metric_value}!")
 
     # img_path = "datasets/SG-mahjong.v1i.tensorflow/test/local_sg_mahjong_with_animal_tiles_travel_size_1551811793_7e51a0d2_progressive_jpg.rf.0d5c4a5f78e69e58dc9788ae8d89e67d.jpg"
     # infos = inference(model, img_path)
