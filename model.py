@@ -93,45 +93,39 @@ class SSD_Model:
 
 	def huber_with_mask(self, y_true, y_pred):
 		losses = Huber(reduction="none")(y_true, y_pred)
-		batch_size = tf.shape(losses)[0]
 
 		pos_mask = tf.reduce_any(tf.not_equal(y_true, 0), axis=-1)
 
 		positive_indices = tf.where(pos_mask)
 		pos_losses = tf.gather_nd(losses, positive_indices)
-		pos_losses = tf.reshape(pos_losses, (batch_size, -1))
 
 		negative_indices = tf.where(tf.logical_not(pos_mask))
 		neg_losses = tf.gather_nd(losses, negative_indices)
-		neg_losses = tf.reshape(neg_losses, (batch_size, -1))
 
 		sorted_losses = tf.sort(neg_losses, direction="DESCENDING")
-		k = tf.cast(tf.shape(pos_losses)[1] * self.hard_neg_ratio, tf.int32)
-		top_neg_losses = sorted_losses[:, :k]
+		k = tf.cast(tf.shape(pos_losses)[0] * self.hard_neg_ratio, tf.int32)
+		top_neg_losses = sorted_losses[:k]
 
-		loss = tf.reduce_mean(tf.concat([pos_losses, top_neg_losses], axis=-1), axis=-1)
+		loss = tf.reduce_mean(tf.concat([pos_losses, top_neg_losses], axis=0), axis=-1)
 
 		return loss
 
 	def categorical_crossentropy_with_mask(self, y_true, y_pred):
 		losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
-		batch_size = tf.shape(losses)[0]
 
 		pos_mask = tf.not_equal(y_true[:, :, 0], 1)
 
 		positive_indices = tf.where(pos_mask)
 		pos_losses = tf.gather_nd(losses, positive_indices)
-		pos_losses = tf.reshape(pos_losses, (batch_size, -1))
 
 		negative_indices = tf.where(tf.logical_not(pos_mask))
 		neg_losses = tf.gather_nd(losses, negative_indices)
-		neg_losses = tf.reshape(neg_losses, (batch_size, -1))
 
 		sorted_losses = tf.sort(neg_losses, direction="DESCENDING")
-		k = tf.cast(tf.shape(pos_losses)[1] * self.hard_neg_ratio, tf.int32)
-		top_neg_losses = sorted_losses[:, :k]
+		k = tf.cast(tf.shape(pos_losses)[0] * self.hard_neg_ratio, tf.int32)
+		top_neg_losses = sorted_losses[:k]
 
-		loss = tf.reduce_mean(tf.concat([pos_losses, top_neg_losses], axis=-1), axis=-1)
+		loss = tf.reduce_mean(tf.concat([pos_losses, top_neg_losses], axis=0), axis=-1)
 
 		return loss
 
@@ -168,19 +162,19 @@ class SSD_Model:
 
 			matches.append((np.argmax(gt_ious), i))
 
-		# for i, box in enumerate(self.default_boxes):
-		# 	def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
+		for i, box in enumerate(self.default_boxes):
+			def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
 
-		# 	if max(def_ious) > threshold:
-		# 		matches.append((i, np.argmax(def_ious)))
+			if max(def_ious) > threshold:
+				matches.append((i, np.argmax(def_ious)))
 
 		return matches
 
 	def train(self, x, y, epochs):
-		# y_true = y["locations"]
-		# y_pred = self.model.predict(x)[0]
+		y_true = y["locations"]
+		y_pred = self.model.predict(x)[0]
 
-		# loss = self.huber_with_mask(y_true, y_pred)
+		loss = self.huber_with_mask(y_true, y_pred)
 
 		fit = self.model.fit(x, y, epochs=epochs)
 

@@ -149,7 +149,7 @@ def evaluate(model, dataset, iou_threshold=0.5, conf_threshold=0.5):
 
 
 if __name__ == "__main__":
-    model = SSD_Model(input_shape, class_amount, load="model nonsized offsetcalc")
+    model = SSD_Model(input_shape, class_amount)
 
     training_dataset = prepare_dataset(model, ["datasets/SG-mahjong.v1i.tensorflow/train"], [convert_class_SG], training=True)
     retrain(model, training_dataset, config.TRAINING_ITERATIONS, config.EPOCHS)
