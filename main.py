@@ -50,6 +50,14 @@ def prepare_training(model, image, gt_boxes, class_indices):
     mask[np.array(pos_indices)[:, 0]] = False
     confidences[mask, 0] = 1
 
+    chosen_indices = model.hard_negative_mining(image, confidences, mask)
+    mask = np.zeros(len(model.default_boxes))
+    mask[chosen_indices] = 1
+    mask = np.expand_dims(mask, axis=-1)
+
+    locations = np.concatenate([locations, mask], axis=-1)
+    confidences = np.concatenate([confidences, mask], axis=-1)
+
     return image, locations, confidences
 
 

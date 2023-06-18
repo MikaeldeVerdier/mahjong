@@ -84,7 +84,7 @@ class SSD_Model:
 		class_predictions = Concatenate(axis=1, name="confidences")(head_outputs[1])
 
 		self.model = Model(inputs=[base_network.input], outputs=[location_predictions, class_predictions])
-		self.model.compile(loss={"locations": self.huber_with_mask, "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=lr, momentum=momentum), metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
+		self.model.compile(loss={"locations": self.huber_with_mask, "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=lr, momentum=momentum))  # , metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
 
 		self.plot_model()
 		self.model.summary()
@@ -92,40 +92,28 @@ class SSD_Model:
 		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "locations_mean_squared_error": [], "confidences_accuracy": []}
 
 	def huber_with_mask(self, y_true, y_pred):
-		losses = Huber(reduction="none")(y_true, y_pred)
+		real_y_true = y_true[:, :, :-1]
 
-		pos_mask = tf.reduce_any(tf.not_equal(y_true, 0), axis=-1)
+		losses = Huber(reduction="none")(real_y_true, y_pred)
 
-		positive_indices = tf.where(pos_mask)
-		pos_losses = tf.gather_nd(losses, positive_indices)
+		chosen_masks = y_true[:, :, -1]
+		chosen_indices = tf.where(chosen_masks)
 
-		negative_indices = tf.where(tf.logical_not(pos_mask))
-		neg_losses = tf.gather_nd(losses, negative_indices)
-
-		sorted_losses = tf.sort(neg_losses, direction="DESCENDING")
-		k = tf.cast(tf.shape(pos_losses)[0] * self.hard_neg_ratio, tf.int32)
-		top_neg_losses = sorted_losses[:k]
-
-		loss = tf.reduce_mean(tf.concat([pos_losses, top_neg_losses], axis=0), axis=-1)
+		chosen_losses = tf.gather_nd(losses, chosen_indices)
+		loss = tf.reduce_mean(chosen_losses, axis=-1)
 
 		return loss
 
 	def categorical_crossentropy_with_mask(self, y_true, y_pred):
-		losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
+		real_y_true = y_true[:, :, :-1]
 
-		pos_mask = tf.not_equal(y_true[:, :, 0], 1)
+		losses = CategoricalCrossentropy(reduction="none")(real_y_true, y_pred)
 
-		positive_indices = tf.where(pos_mask)
-		pos_losses = tf.gather_nd(losses, positive_indices)
+		chosen_masks = y_true[:, :, -1]
+		chosen_indices = tf.where(chosen_masks)
 
-		negative_indices = tf.where(tf.logical_not(pos_mask))
-		neg_losses = tf.gather_nd(losses, negative_indices)
-
-		sorted_losses = tf.sort(neg_losses, direction="DESCENDING")
-		k = tf.cast(tf.shape(pos_losses)[0] * self.hard_neg_ratio, tf.int32)
-		top_neg_losses = sorted_losses[:k]
-
-		loss = tf.reduce_mean(tf.concat([pos_losses, top_neg_losses], axis=0), axis=-1)
+		chosen_losses = tf.gather_nd(losses, chosen_indices)
+		loss = tf.reduce_mean(chosen_losses, axis=-1)
 
 		return loss
 
@@ -169,12 +157,29 @@ class SSD_Model:
 				matches.append((i, np.argmax(def_ious)))
 
 		return matches
+	
+	def hard_negative_mining(self, x, y_conf, mask):
+		x = np.expand_dims(x, axis=0)
+		y_pred = self.model.predict_on_batch(x)
+
+		conf_loss = CategoricalCrossentropy(reduction="none")(y_conf, y_pred[1][0])
+
+		pos_indices = np.where(np.logical_not(mask))[0]
+
+		neg_losses = conf_loss[mask]
+		sorted_neg_losses = np.argsort(neg_losses)
+		k = len(pos_indices) * self.hard_neg_ratio
+		top_neg_indices = sorted_neg_losses[:k]
+
+		chosen_indices = np.concatenate([pos_indices, top_neg_indices])
+
+		return chosen_indices  # Has to be for the entire batch? has to be done in the retrain function?
 
 	def train(self, x, y, epochs):
-		y_true = y["locations"]
-		y_pred = self.model.predict(x)[0]
+		# y_true = y["locations"]
+		# y_pred = self.model.predict(x)[0]
 
-		loss = self.huber_with_mask(y_true, y_pred)
+		# loss = self.huber_with_mask(y_true, y_pred)
 
 		fit = self.model.fit(x, y, epochs=epochs)
 
