@@ -158,22 +158,22 @@ class SSD_Model:
 
 		return matches
 	
-	def hard_negative_mining(self, x, y_conf, mask):
+	def hard_negative_mining(self, x, y_true_conf, mask):
 		x = np.expand_dims(x, axis=0)
-		y_pred = self.model.predict_on_batch(x)
+		y_pred_conf = self.model.predict_on_batch(x)[1][0]
 
-		conf_loss = CategoricalCrossentropy(reduction="none")(y_conf, y_pred[1][0])
+		conf_loss = CategoricalCrossentropy(reduction="none")(y_true_conf, y_pred_conf)
 
 		pos_indices = np.where(np.logical_not(mask))[0]
 
 		neg_losses = conf_loss[mask]
-		sorted_neg_losses = np.argsort(neg_losses)
+		sorted_neg_indices = np.argsort(neg_losses)[::-1]
 		k = len(pos_indices) * self.hard_neg_ratio
-		top_neg_indices = sorted_neg_losses[:k]
+		top_neg_indices = sorted_neg_indices[:k]
 
 		chosen_indices = np.concatenate([pos_indices, top_neg_indices])
 
-		return chosen_indices  # Has to be for the entire batch? has to be done in the retrain function?
+		return chosen_indices
 
 	def train(self, x, y, epochs):
 		# y_true = y["locations"]
