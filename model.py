@@ -95,7 +95,7 @@ class SSD_Model:
 		pos_losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
 		neg_losses = pos_losses
 
-		pos_mask = tf.reduce_any(tf.not_equal(y_true[:, :, 0], 1), axis=-1)
+		pos_mask = tf.not_equal(y_true[:, :, 0], 1)
 		pos_multiplier = tf.cast(pos_mask, tf.float32)
 		pos_losses *= pos_multiplier
 
@@ -198,10 +198,10 @@ class SSD_Model:
 		return chosen_indices
 
 	def train(self, x, y, epochs):
-		# y_true = y["locations"]
-		# y_pred = self.model.predict(x)[0]
+		# y_true = y["confidences"]
+		# y_pred = self.model.predict(x)[1]
 
-		# loss = self.huber_with_mask(y_true, y_pred)
+		# loss = self.categorical_crossentropy_with_mask(y_true, y_pred)
 
 		fit = self.model.fit(x, y, epochs=epochs)
 
