@@ -91,29 +91,51 @@ class SSD_Model:
 
 		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": []}  # , "locations_mean_squared_error": [], "confidences_accuracy": []}
 
-	def huber_with_mask(self, y_true, y_pred):
-		real_y_true = y_true[:, :, :-1]
+	def categorical_crossentropy_with_mask(self, y_true, y_pred):
+		pos_losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
+		neg_losses = pos_losses
 
-		losses = Huber(reduction="none")(real_y_true, y_pred)
+		pos_mask = tf.reduce_any(tf.not_equal(y_true[:, :, 0], 1), axis=-1)
+		pos_multiplier = tf.cast(pos_mask, tf.float32)
+		pos_losses *= pos_multiplier
 
-		chosen_masks = y_true[:, :, -1]
-		chosen_indices = tf.where(chosen_masks)
+		neg_mask = tf.logical_not(pos_mask)
+		neg_multiplier = tf.cast(neg_mask, tf.float32)
+		neg_losses *= neg_multiplier
 
-		chosen_losses = tf.gather_nd(losses, chosen_indices)
-		loss = tf.reduce_mean(chosen_losses, axis=-1)
+		sorted_neg_losses = tf.sort(neg_losses, direction="DESCENDING")
+		ks = tf.expand_dims(tf.reduce_sum(tf.cast(pos_mask, tf.int32), axis=-1), axis=-1)
+
+		indices = tf.range(tf.shape(sorted_neg_losses)[-1])
+		indices_expanded = tf.expand_dims(indices, axis=0)
+		mask_tensor = tf.where(indices_expanded <= ks, tf.ones_like(indices_expanded, dtype=tf.float32), tf.zeros_like(indices_expanded, dtype=tf.float32))
+		top_neg_losses = mask_tensor * sorted_neg_losses
+
+		loss = tf.reduce_sum(tf.concat([pos_losses, top_neg_losses], axis=-1), axis=-1)
 
 		return loss
+	
+	def huber_with_mask(self, y_true, y_pred):
+		pos_losses = Huber(reduction="none")(y_true, y_pred)
+		neg_losses = pos_losses
 
-	def categorical_crossentropy_with_mask(self, y_true, y_pred):
-		real_y_true = y_true[:, :, :-1]
+		pos_mask = tf.reduce_any(tf.not_equal(y_true, 0), axis=-1)
+		pos_multiplier = tf.cast(pos_mask, tf.float32)
+		pos_losses *= pos_multiplier
 
-		losses = CategoricalCrossentropy(reduction="none")(real_y_true, y_pred)
+		neg_mask = tf.logical_not(pos_mask)
+		neg_multiplier = tf.cast(neg_mask, tf.float32)
+		neg_losses *= neg_multiplier
 
-		chosen_masks = y_true[:, :, -1]
-		chosen_indices = tf.where(chosen_masks)
+		sorted_neg_losses = tf.sort(neg_losses, direction="DESCENDING")
+		ks = tf.expand_dims(tf.reduce_sum(tf.cast(pos_mask, tf.int32), axis=-1), axis=-1)
 
-		chosen_losses = tf.gather_nd(losses, chosen_indices)
-		loss = tf.reduce_mean(chosen_losses, axis=-1)
+		indices = tf.range(tf.shape(sorted_neg_losses)[-1])
+		indices_expanded = tf.expand_dims(indices, axis=0)
+		mask_tensor = tf.where(indices_expanded <= ks, tf.ones_like(indices_expanded, dtype=tf.float32), tf.zeros_like(indices_expanded, dtype=tf.float32))
+		top_neg_losses = mask_tensor * sorted_neg_losses
+
+		loss = tf.reduce_sum(tf.concat([pos_losses, top_neg_losses], axis=-1), axis=-1)
 
 		return loss
 
@@ -150,11 +172,11 @@ class SSD_Model:
 
 			matches.append((np.argmax(gt_ious), i))
 
-		# for i, box in enumerate(self.default_boxes):
-		# 	def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
+		for i, box in enumerate(self.default_boxes):
+			def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
 
-		# 	if max(def_ious) > threshold:
-		# 		matches.append((i, np.argmax(def_ious)))
+			if max(def_ious) > threshold:
+				matches.append((i, np.argmax(def_ious)))
 
 		return matches
 	
