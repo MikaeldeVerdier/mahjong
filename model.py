@@ -89,7 +89,7 @@ class SSD_Model:
 		self.plot_model()
 		self.model.summary()
 
-		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "locations_mean_squared_error": [], "confidences_accuracy": []}
+		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": []}  # , "locations_mean_squared_error": [], "confidences_accuracy": []}
 
 	def huber_with_mask(self, y_true, y_pred):
 		real_y_true = y_true[:, :, :-1]
@@ -150,11 +150,11 @@ class SSD_Model:
 
 			matches.append((np.argmax(gt_ious), i))
 
-		for i, box in enumerate(self.default_boxes):
-			def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
+		# for i, box in enumerate(self.default_boxes):
+		# 	def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
 
-			if max(def_ious) > threshold:
-				matches.append((i, np.argmax(def_ious)))
+		# 	if max(def_ious) > threshold:
+		# 		matches.append((i, np.argmax(def_ious)))
 
 		return matches
 	
