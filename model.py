@@ -76,6 +76,7 @@ class SSD_Model:
 
 			class_pred = Conv2D(filters=len(defaults) * class_amount, kernel_size=(3, 3), strides=(1, 1), padding="same")(output)
 			class_pred = Reshape((-1, class_amount))(class_pred)
+			class_pred = Activation("softmax")(class_pred)
 			head_outputs[1].append(class_pred)
 
 		location_predictions = Concatenate(axis=1, name="locations")(head_outputs[0])
@@ -139,15 +140,11 @@ class SSD_Model:
 
 	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.1):
 		classes = tf.argmax(scores, axis=1)
+		non_backgrounds = classes != 0
 
-		# non_backgrounds = classes != 0
-
-		# boxes = tf.convert_to_tensor(np.array(boxes)[non_backgrounds], dtype="float32")
-		# classes = classes[non_backgrounds]
-		# scores = tf.reduce_max(scores[non_backgrounds], axis=1)
-
-		boxes = tf.convert_to_tensor(np.array(boxes), dtype="float32")
-		scores = tf.reduce_max(scores, axis=1)
+		boxes = tf.convert_to_tensor(np.array(boxes)[non_backgrounds], dtype="float32")
+		classes = classes[non_backgrounds]
+		scores = tf.reduce_max(scores[non_backgrounds], axis=1)
 
 		selected_indices = tf.image.non_max_suppression(boxes, scores, max_output_size=max_output_size, iou_threshold=iou_threshold, score_threshold=score_threshold)
 
