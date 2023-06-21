@@ -1,5 +1,4 @@
 import json
-import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -12,7 +11,7 @@ from tensorflow.keras.metrics import MeanSquaredError, Accuracy
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.optimizers import SGD
 
-from default_box import default_boxes
+from default_box import default_boxes, CellBox
 
 class SSD_Model:
 	def __init__(self, inp_shape, class_amount, lr=1e-3, momentum=0.9, hard_neg_ratio=3, load=False):
@@ -91,11 +90,11 @@ class SSD_Model:
 
 		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": []}  # , "locations_mean_squared_error": [], "confidences_accuracy": []}
 
-	def categorical_crossentropy_with_mask(self, y_true, y_pred):
-		pos_losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
+	def huber_with_mask(self, y_true, y_pred):
+		pos_losses = Huber(reduction="none")(y_true, y_pred)
 		neg_losses = pos_losses
 
-		pos_mask = tf.not_equal(y_true[:, :, 0], 1)
+		pos_mask = tf.reduce_any(tf.not_equal(y_true, 0), axis=-1)
 		pos_multiplier = tf.cast(pos_mask, tf.float32)
 		pos_losses *= pos_multiplier
 
@@ -114,12 +113,12 @@ class SSD_Model:
 		loss = tf.reduce_sum(tf.concat([pos_losses, top_neg_losses], axis=-1), axis=-1)
 
 		return loss
-	
-	def huber_with_mask(self, y_true, y_pred):
-		pos_losses = Huber(reduction="none")(y_true, y_pred)
+
+	def categorical_crossentropy_with_mask(self, y_true, y_pred):
+		pos_losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
 		neg_losses = pos_losses
 
-		pos_mask = tf.reduce_any(tf.not_equal(y_true, 0), axis=-1)
+		pos_mask = tf.not_equal(y_true[:, :, 0], 1)
 		pos_multiplier = tf.cast(pos_mask, tf.float32)
 		pos_losses *= pos_multiplier
 
@@ -214,17 +213,19 @@ class SSD_Model:
 		with open("save_folder/save.json", "w") as f:
 			f.write(json.dumps(self.metrics))
 
-		with open("save_folder/default_boxes.pkl", "wb") as f:
-			pickle.dump(self.default_boxes, f)
+		with open("save_folder/default_boxes.json", "w") as f:
+			boxes = [box.abs_coords for box in self.default_boxes]
+			f.write(json.dumps(boxes))
 
 	def load_model(self, name):
 		self.model = load_model(f"save_folder/{name}", custom_objects={"huber_with_mask": self.huber_with_mask, "categorical_crossentropy_with_mask": self.categorical_crossentropy_with_mask})
 
 		with open("save_folder/save.json", "r") as f:
 			self.metrics = json.loads(f.read())
-		
-		with open("save_folder/default_boxes.pkl", "rb") as f:
-			self.default_boxes = pickle.load(f)
+
+		with open("save_folder/default_boxes.json", "r") as f:
+			reading = json.loads(f.read())
+			self.default_boxes = [CellBox(abs_coords=coords) for coords in reading]
 
 	def plot_model(self):
 		try:
