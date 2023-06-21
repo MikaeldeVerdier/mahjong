@@ -107,8 +107,8 @@ class SSD_Model:
 
 		indices = tf.range(tf.shape(sorted_neg_losses)[-1])
 		indices_expanded = tf.expand_dims(indices, axis=0)
-		mask_tensor = tf.where(indices_expanded <= ks, tf.ones_like(indices_expanded, dtype=tf.float32), tf.zeros_like(indices_expanded, dtype=tf.float32))
-		top_neg_losses = mask_tensor * sorted_neg_losses
+		mask_multiplier = tf.where(indices_expanded <= ks, tf.ones_like(indices_expanded, dtype=tf.float32), tf.zeros_like(indices_expanded, dtype=tf.float32))
+		top_neg_losses = mask_multiplier * sorted_neg_losses
 
 		loss = tf.reduce_sum(tf.concat([pos_losses, top_neg_losses], axis=-1), axis=-1)
 
@@ -197,10 +197,10 @@ class SSD_Model:
 		return chosen_indices
 
 	def train(self, x, y, epochs):
-		# y_true = y["confidences"]
-		# y_pred = self.model.predict(x)[1]
+		# y_true = y["locations"]
+		# y_pred = self.model.predict(x)[0]
 
-		# loss = self.categorical_crossentropy_with_mask(y_true, y_pred)
+		# loss = self.huber_with_mask(y_true, y_pred)
 
 		fit = self.model.fit(x, y, epochs=epochs)
 

@@ -46,11 +46,13 @@ class CellBox:
 		x2 = min(self.abs_coords[2], other_box.abs_coords[2])
 		y2 = min(self.abs_coords[3], other_box.abs_coords[3])
 
-		box_area = self.size_coords[2] * self.size_coords[3]
-		gt_box_area = other_box.size_coords[2] * other_box.size_coords[3]
+		intersection_box = CellBox(abs_coords=(x1, y1, x2, y2))
+		intersection_area = abs((intersection_box.size_coords[2] + 1) * (intersection_box.size_coords[3] + 1))
 
-		intersection_area = (x2 - x1) * (y2 - y1)
-		union_area = box_area + gt_box_area - intersection_area
+		box_area = abs((self.size_coords[2] + 1) * (self.size_coords[3] + 1))
+		other_box_area = abs((other_box.size_coords[2] + 1) * (other_box.size_coords[3] + 1))
+
+		union_area = box_area + other_box_area - intersection_area
 
 		iou = intersection_area / union_area
 		
