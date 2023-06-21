@@ -46,9 +46,9 @@ def prepare_training(model, image, gt_boxes, class_indices):
         locations[pos_index] = offset
         confidences[pos_index, class_indices[gt_match]] = 1
 
-    mask = np.ones(len(confidences), dtype="bool")
-    mask[np.array(pos_indices)[:, 0]] = False
-    confidences[mask, 0] = 1
+    # mask = np.ones(len(confidences), dtype="bool")
+    # mask[np.array(pos_indices)[:, 0]] = False
+    # confidences[mask, 0] = 1
 
     # chosen_indices = model.hard_negative_mining(image, confidences, mask)
     # mask = np.zeros(len(model.default_boxes))
