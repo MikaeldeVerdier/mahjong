@@ -171,11 +171,12 @@ class SSD_Model:
 
 			matches.append((np.argmax(gt_ious), i))
 
-		for i, box in enumerate(self.default_boxes):
-			def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
+		if len(gt_boxes):
+			for i, box in enumerate(self.default_boxes):
+				def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
 
-			if max(def_ious) > threshold:
-				matches.append((i, np.argmax(def_ious)))
+				if max(def_ious) > threshold:
+					matches.append((i, np.argmax(def_ious)))
 
 		return matches
 	

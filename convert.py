@@ -133,4 +133,4 @@ pipeline.spec.specificationVersion = 3
 
 ct_model = ct.models.MLModel(pipeline.spec)
 
-ct_model.save("output_model.mlpackage")
+ct_model.save("save_folder/output_model.mlpackage")
