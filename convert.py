@@ -30,10 +30,10 @@ mlmodel = ct.convert(
 
 spec = mlmodel.get_spec()
 
-old_box_output_name = spec.description.output[1].name
-old_scores_output_name = spec.description.output[0].name
-ct.utils.rename_feature(spec, old_scores_output_name, "raw_confidence")
-ct.utils.rename_feature(spec, old_box_output_name, "raw_coordinates")
+old_confidences_output_name = spec.description.output[0].name
+old_locations_output_name = spec.description.output[1].name
+ct.utils.rename_feature(spec, old_confidences_output_name, "raw_confidence")
+ct.utils.rename_feature(spec, old_locations_output_name, "raw_coordinates")
 spec.description.output[0].type.multiArrayType.shape.extend([num_boxes, num_classes])
 spec.description.output[1].type.multiArrayType.shape.extend([num_boxes, 4])
 spec.description.output[0].type.multiArrayType.dataType = ct.proto.FeatureTypes_pb2.ArrayFeatureType.DOUBLE
