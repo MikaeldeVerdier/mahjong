@@ -116,4 +116,8 @@ pipeline.spec.description.metadata.userDefined.update(user_defined_metadata)
 pipeline.spec.specificationVersion = 5
 
 ct_model = ct.models.MLModel(pipeline.spec)
-ct_model.save("save_folder/output_model.mlpackage")
+
+nbits = 16  # 32
+quantized_model = ct.models.neural_network.quantization_utils.quantize_weights(ct_model, nbits)
+
+quantized_model.save("save_folder/output_model.mlpackage")
