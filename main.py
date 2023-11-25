@@ -47,7 +47,8 @@ def prepare_training(model, gt_boxes, label_indices):
         confidences[pos_index, label_indices[gt_match]] = 1
 
     mask = np.ones(len(confidences), dtype="bool")
-    mask[np.array(pos_indices)[:, 0]] = False
+    if len(gt_boxes):
+        mask[np.array(pos_indices)[:, 0]] = False
     confidences[mask, 0] = 1
 
     return locations, confidences

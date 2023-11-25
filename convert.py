@@ -17,21 +17,19 @@ labels = [
     "Back"
 ]
 num_classes = len(labels)
-print(num_classes)
 
-# Load custom Tensorflow model
 model = SSD_Model((288, 512, 3), num_classes)
 tfmodel = model.model
 
 num_boxes = len(model.default_boxes)
 
-# Convert to MLModel (coremltools)
 mlmodel = ct.convert(
     tfmodel,
     inputs=[ct.ImageType("input_1", shape=(1, 512, 288, 3))]
 )
 
 spec = mlmodel.get_spec()
+
 old_box_output_name = spec.description.output[1].name
 old_scores_output_name = spec.description.output[0].name
 ct.utils.rename_feature(spec, old_scores_output_name, "raw_confidence")
@@ -41,13 +39,10 @@ spec.description.output[1].type.multiArrayType.shape.extend([num_boxes, 4])
 spec.description.output[0].type.multiArrayType.dataType = ct.proto.FeatureTypes_pb2.ArrayFeatureType.DOUBLE
 spec.description.output[1].type.multiArrayType.dataType = ct.proto.FeatureTypes_pb2.ArrayFeatureType.DOUBLE
 
-print(spec.description.output)
-
 mlmodel = ct.models.MLModel(spec)
 
-# Build Non Maximum Suppression model
 nms_spec = ct.proto.Model_pb2.Model()
-nms_spec.specificationVersion = 3
+nms_spec.specificationVersion = 5
 
 for i in range(2):
     decoder_output = spec.description.output[i].SerializeToString()
@@ -87,9 +82,8 @@ nms.stringClassLabels.vector.extend(labels)
 
 nms_model = ct.models.MLModel(nms_spec)
 
-# Assembling a pipeline model from the two models
 input_features = [
-    ("input_1", ct.models.datatypes.Array(3, 288, 512)),
+    ("input_1", ct.models.datatypes.Array(0)),  # Doesn't matter, is changed later anyway
     ("iouThreshold", ct.models.datatypes.Double()),
     ("confidenceThreshold", ct.models.datatypes.Double())
 ]
@@ -101,36 +95,25 @@ pipeline = ct.models.pipeline.Pipeline(input_features, output_features)
 pipeline.add_model(mlmodel)
 pipeline.add_model(nms_model)
 
-# The "image" input should really be an image, not a multi-array
 pipeline.spec.description.input[0].ParseFromString(spec.description.input[0].SerializeToString())
-print(pipeline.spec.description)
-
-# Copy the declarations of the "confidence" and "coordinates" outputs
-# The Pipeline makes these strings by default
 pipeline.spec.description.output[0].ParseFromString(nms_spec.description.output[0].SerializeToString())
 pipeline.spec.description.output[1].ParseFromString(nms_spec.description.output[1].SerializeToString())
 
-# Add descriptions to the inputs and outputs
 pipeline.spec.description.input[1].shortDescription = "(optional) IOU threshold override"
 pipeline.spec.description.input[2].shortDescription = "(optional) Confidence threshold override"
 pipeline.spec.description.output[0].shortDescription = "Boxes class confidences"
-pipeline.spec.description.output[1].shortDescription = "Boxes [x, y, width, height] (normalized to [0...1])"  # "relative to screen size"?
+pipeline.spec.description.output[1].shortDescription = "Boxes [x, y, width, height] (relative to image size)"
 
-# Add metadata to the model
 pipeline.spec.description.metadata.shortDescription = "Mahjong Tile Object Detector"
 pipeline.spec.description.metadata.author = "Mikael de Verdier"
 
-# Add the default threshold values and list of class labels
 user_defined_metadata = {
     "iou_threshold": str(iou_threshold),
     "confidence_threshold": str(conf_threshold)
     # "classes": ", ".join(labels)
 }
 pipeline.spec.description.metadata.userDefined.update(user_defined_metadata)
-
-# Don't forget this or Core ML might attempt to run the model on an unsupported operating system version!
-pipeline.spec.specificationVersion = 3
+pipeline.spec.specificationVersion = 5
 
 ct_model = ct.models.MLModel(pipeline.spec)
-
 ct_model.save("save_folder/output_model.mlpackage")

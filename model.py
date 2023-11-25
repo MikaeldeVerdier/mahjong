@@ -5,7 +5,7 @@ import tensorflow as tf
 
 from keras.utils.vis_utils import plot_model
 from tensorflow.keras.applications import VGG16
-from tensorflow.keras.layers import Activation, Concatenate, Conv2D, Reshape
+from tensorflow.keras.layers import Activation, Concatenate, Conv2D, Reshape, Permute
 from tensorflow.keras.losses import CategoricalCrossentropy, Huber
 from tensorflow.keras.metrics import MeanSquaredError, Accuracy
 from tensorflow.keras.models import Model, load_model
@@ -82,7 +82,7 @@ class SSD_Model:
 		location_predictions = Concatenate(axis=1, name="locations")(head_outputs[0])
 		class_predictions = Concatenate(axis=1, name="confidences")(head_outputs[1])
 
-		self.model = Model(inputs=[base_network.input], outputs=[location_predictions, class_predictions])
+		self.model = Model(inputs=[base_network.input], outputs=[class_predictions, location_predictions])
 		self.model.compile(loss={"locations": self.huber_with_mask, "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=lr, momentum=momentum))  # , metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
 
 		self.plot_model()
