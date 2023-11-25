@@ -134,11 +134,19 @@ def evaluate(model, dataset, iou_threshold=0.5, conf_threshold=0.5):
 if __name__ == "__main__":
     model = SSD_Model(input_shape, label_amount)
 
-    training_dataset = prepare_dataset(model, "dataset", training=True)
+    prepared_dataest = random.shuffle(prepare_dataset(model, "dataset", training=True))
+
+    training_dataset = prepared_dataest[int(len(prepared_dataest) * config.TESTING_SPLIT)]
     retrain(model, training_dataset, config.TRAINING_ITERATIONS, config.EPOCHS)
 
     model.save_model("model")
     model.plot_metrics()
+
+    metadata_changes = {
+        "Iterations trained": len(model.metrics["loss"]),
+        "Accuracy": "unknown"
+    }
+    model.convert(labels, metadata_changes=metadata_changes)
 
     # testing_dataset = prepare_dataset(model, "datasets/SG-mahjong.v1i.tensorflow/test")
     # metric_value = evaluate(model, testing_dataset)

@@ -2,6 +2,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
+import coremltools as ct
 
 from keras.utils.vis_utils import plot_model
 from tensorflow.keras.applications import VGG16
@@ -15,8 +16,8 @@ import config
 from default_box import default_boxes, CellBox
 
 class SSD_Model:
-	def __init__(self, inp_shape, class_amount, lr=1e-7, momentum=0.9, hard_neg_ratio=3, load=False):
-		self.inp_shape = inp_shape
+	def __init__(self, input_shape, class_amount, lr=1e-7, momentum=0.9, hard_neg_ratio=3, load=False):
+		self.input_shape = input_shape
 		self.class_amount = class_amount
 		self.hard_neg_ratio = hard_neg_ratio
 
@@ -24,7 +25,7 @@ class SSD_Model:
 			self.load_model(load)
 			return
 
-		base_network = VGG16(include_top=False, weights="imagenet", input_shape=inp_shape)
+		base_network = VGG16(include_top=False, weights="imagenet", input_shape=input_shape)
 		# frozen_layer_amount = 5
 		# for layer in base_network.layers[:frozen_layer_amount]:
 		# 	layer.trainable = False
@@ -246,3 +247,114 @@ class SSD_Model:
 			ax.legend()
 
 		plt.savefig(f"{config.SAVE_FOLDER_PATH}/metrics.png", dpi=200)
+
+	def convert(self, labels, iou_threshold=0.45, conf_threshold=0.25, nbits=16, metadata_changes={}):
+		num_classes = len(labels)
+		num_boxes = len(self.default_boxes)
+		
+		metadata = {
+			"image_input_description": "Input image",
+			"iou_threshold_input_description": f"(optional) IOU threshold override (default: {str(iou_threshold)})",
+			"conf_threshold_input_description": f"(optional) Confidence threshold override (default: {str(conf_threshold)})",
+			"confidences_output_description": f"Found boxes × [conf_label1, conf_label2, ..., conf_label{num_classes}]",
+			"locations_output_description": "Found boxes × [x, y, width, height] (relative to image size)",
+			"general_description": "Object detector for Mahjong tiles",
+			"author": "Mikael de Verdier",
+			"additional": {}
+		}
+		metadata.update(metadata_changes)
+
+		mlmodel = ct.convert(
+			self.model,
+			inputs=[ct.ImageType("input_1", shape=(1,) + self.input_shape[-2::-1] + self.input_shape[-1:])]
+		)
+
+		spec = mlmodel.get_spec()
+
+		new_names = ["raw_confidence", "raw_coordinates"]
+		output_sizes = [num_classes, 4]
+		for i in range(2):
+			old_name = spec.description.output[i].name
+			ct.utils.rename_feature(spec, old_name, new_names[i])
+			spec.description.output[i].type.multiArrayType.shape.extend([num_boxes, output_sizes[i]])
+			spec.description.output[i].type.multiArrayType.dataType = ct.proto.FeatureTypes_pb2.ArrayFeatureType.DOUBLE
+
+		mlmodel = ct.models.MLModel(spec)
+
+		nms_spec = ct.proto.Model_pb2.Model()
+		nms_spec.specificationVersion = 5
+
+		for i in range(2):
+			decoder_output = spec.description.output[i].SerializeToString()
+
+			nms_spec.description.input.add()
+			nms_spec.description.input[i].ParseFromString(decoder_output)
+
+			nms_spec.description.output.add()
+			nms_spec.description.output[i].ParseFromString(decoder_output)
+
+		nms_spec.description.output[0].name = "confidence"
+		nms_spec.description.output[1].name = "coordinates"
+		
+		for i in range(2):
+			ma_type = nms_spec.description.output[i].type.multiArrayType
+			ma_type.shapeRange.sizeRanges.add()
+			ma_type.shapeRange.sizeRanges[0].lowerBound = 0
+			ma_type.shapeRange.sizeRanges[0].upperBound = -1
+			ma_type.shapeRange.sizeRanges.add()
+			ma_type.shapeRange.sizeRanges[1].lowerBound = output_sizes[i]
+			ma_type.shapeRange.sizeRanges[1].upperBound = output_sizes[i]
+			del ma_type.shape[:]
+
+		nms = nms_spec.nonMaximumSuppression
+		nms.confidenceInputFeatureName = "raw_confidence"
+		nms.coordinatesInputFeatureName = "raw_coordinates"
+		nms.confidenceOutputFeatureName = "confidence"
+		nms.coordinatesOutputFeatureName = "coordinates"
+		nms.iouThresholdInputFeatureName = "iouThreshold"
+		nms.confidenceThresholdInputFeatureName = "confidenceThreshold"
+
+		nms.iouThreshold = iou_threshold
+		nms.confidenceThreshold = conf_threshold
+		nms.pickTop.perClass = False
+		nms.stringClassLabels.vector.extend(labels)
+
+		nms_model = ct.models.MLModel(nms_spec)
+
+		input_features = [
+			("input_1", ct.models.datatypes.Array(0)),  # Doesn't matter, is changed later anyway
+			("iouThreshold", ct.models.datatypes.Double()),
+			("confidenceThreshold", ct.models.datatypes.Double())
+		]
+
+		output_features = ["confidence", "coordinates"]
+
+		pipeline = ct.models.pipeline.Pipeline(input_features, output_features)
+
+		pipeline.add_model(mlmodel)
+		pipeline.add_model(nms_model)
+
+		pipeline.spec.description.input[1].type.isOptional = True
+		pipeline.spec.description.input[2].type.isOptional = True
+
+		pipeline.spec.description.input[0].ParseFromString(spec.description.input[0].SerializeToString())
+		pipeline.spec.description.output[0].ParseFromString(nms_spec.description.output[0].SerializeToString())
+		pipeline.spec.description.output[1].ParseFromString(nms_spec.description.output[1].SerializeToString())
+
+		pipeline.spec.description.input[0].shortDescription = metadata["image_input_description"]
+		pipeline.spec.description.input[1].shortDescription = metadata["iou_threshold_input_description"]
+		pipeline.spec.description.input[2].shortDescription = metadata["conf_threshold_input_description"]
+
+		pipeline.spec.description.output[0].shortDescription = metadata["confidences_output_description"]
+		pipeline.spec.description.output[1].shortDescription = metadata["locations_output_description"]
+
+		pipeline.spec.description.metadata.shortDescription = metadata["general_description"]
+		pipeline.spec.description.metadata.author = metadata["author"]
+
+		pipeline.spec.description.metadata.userDefined.update(metadata["additional"])
+		pipeline.spec.specificationVersion = 5
+
+		ct_model = ct.models.MLModel(pipeline.spec)
+		quantized_model = ct.models.neural_network.quantization_utils.quantize_weights(ct_model, nbits)
+
+		quantized_model.save(f"{config.SAVE_FOLDER_PATH}/output_model.mlpackage")
