@@ -54,11 +54,12 @@ def prepare_training(model, gt_boxes, label_indices):
     return locations, confidences
 
 
-def prepare_dataset(model, path, training=False):
+def prepare_dataset(model, path, training_ratio=0):
     dataset = []
     annotations = files.load(path)
 
-    for annotation in annotations:
+    training_first = len(annotations) * training_ratio
+    for i, annotation in enumerate(annotations):
         img_path = os.path.join(path, annotation["image"])
         image, og_img_size = preprocess_image(img_path)
 
@@ -70,7 +71,7 @@ def prepare_dataset(model, path, training=False):
 
             confidences.append(labels.index(label["label"]))
 
-        if training:
+        if i < training_first:
             locations, confidences = prepare_training(model, locations, confidences)
 
         dataset.append([image, locations, confidences])
@@ -93,9 +94,7 @@ def retrain(model, dataset, iteration_amount, epochs):
             model.save_model("model")
 
 
-def inference(model, path, conf_threshold=0.1):
-    image = preprocess_image(path)
-
+def inference(model, image, conf_threshold=0.1):
     found_labels, found_boxes, confs = model.get_preds(image, conf_threshold=conf_threshold)
     labeled_labels = np.array(labels)[found_labels]
     scaled_boxes = [CellBox(abs_coords=box).scale_box(input_shape[:-1]) for box in found_boxes]
@@ -110,12 +109,12 @@ def evaluate(model, dataset, iou_threshold=0.5, conf_threshold=0.5):
     amount_false_pos = 0
     amount_false_neg = 0
 
-    for img, gt_boxes, gt_labels in dataset:
+    for image, gt_boxes, gt_labels in dataset:
         iteration_true_pos = 0
 
         gt_boxes = [gt_box.scale_box(input_shape[:-1]) for gt_box in gt_boxes]
 
-        label_infos = inference(model, img, conf_threshold=conf_threshold)
+        label_infos = inference(model, image, conf_threshold=conf_threshold)
 
         for pred_label, box, _ in label_infos:
             if any(box.calculate_iou(gt_box) >= iou_threshold and labels[gt_label] == pred_label for gt_label, gt_box in zip(gt_labels, gt_boxes)):
@@ -134,17 +133,24 @@ def evaluate(model, dataset, iou_threshold=0.5, conf_threshold=0.5):
 if __name__ == "__main__":
     model = SSD_Model(input_shape, label_amount)
 
-    prepared_dataest = random.shuffle(prepare_dataset(model, "dataset", training=True))
+    dataset = prepare_dataset(model, "dataset", training_ratio=config.TESTING_SPLIT)
+    split_index = int(len(dataset) * config.TESTING_SPLIT)
+    training_dataset = dataset[:split_index]
+    testing_dataset = dataset[split_index:]
 
-    training_dataset = prepared_dataest[int(len(prepared_dataest) * config.TESTING_SPLIT)]
     retrain(model, training_dataset, config.TRAINING_ITERATIONS, config.EPOCHS)
 
     model.save_model("model")
     model.plot_metrics()
 
+    testing_score = evaluate(model, testing_dataset)
+    print(f"The model got a testing score of {testing_score}")
+
     metadata_changes = {
-        "Iterations trained": len(model.metrics["loss"]),
-        "Accuracy": "unknown"
+        "additional": {
+            "Iterations trained": str(len(model.metrics["loss"])),
+            "Testing score": str(testing_score)
+        }
     }
     model.convert(labels, metadata_changes=metadata_changes)
 
