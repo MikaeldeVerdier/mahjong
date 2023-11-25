@@ -5,7 +5,7 @@ import tensorflow as tf
 
 from keras.utils.vis_utils import plot_model
 from tensorflow.keras.applications import VGG16
-from tensorflow.keras.layers import Activation, Concatenate, Conv2D, Reshape, Permute
+from tensorflow.keras.layers import Activation, Concatenate, Conv2D, Reshape
 from tensorflow.keras.losses import CategoricalCrossentropy, Huber
 from tensorflow.keras.metrics import MeanSquaredError, Accuracy
 from tensorflow.keras.models import Model, load_model
@@ -180,6 +180,7 @@ class SSD_Model:
 
 		return matches
 	
+	"""
 	def hard_negative_mining(self, x, y_true_conf, mask):
 		x = np.expand_dims(x, axis=0)
 		y_pred_conf = self.model.predict_on_batch(x)[1][0]
@@ -196,6 +197,7 @@ class SSD_Model:
 		chosen_indices = np.concatenate([pos_indices, top_neg_indices])
 
 		return chosen_indices
+	"""
 
 	def train(self, x, y, epochs):
 		# y_true = y["locations"]
