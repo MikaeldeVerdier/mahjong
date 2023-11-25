@@ -11,6 +11,7 @@ from tensorflow.keras.metrics import MeanSquaredError, Accuracy
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.optimizers import SGD
 
+import config
 from default_box import default_boxes, CellBox
 
 class SSD_Model:
@@ -211,28 +212,28 @@ class SSD_Model:
 			self.metrics[metric] += fit.history[metric]
 
 	def save_model(self, name):
-		self.model.save(f"save_folder/{name}")
+		self.model.save(f"{config.SAVE_FOLDER_PATH}/{name}")
 
-		with open("save_folder/save.json", "w") as f:
+		with open(f"{config.SAVE_FOLDER_PATH}/save.json", "w") as f:
 			f.write(json.dumps(self.metrics))
 
-		with open("save_folder/default_boxes.json", "w") as f:
+		with open(f"{config.SAVE_FOLDER_PATH}/default_boxes.json", "w") as f:
 			boxes = [box.abs_coords for box in self.default_boxes]
 			f.write(json.dumps(boxes))
 
 	def load_model(self, name):
-		self.model = load_model(f"save_folder/{name}", custom_objects={"huber_with_mask": self.huber_with_mask, "categorical_crossentropy_with_mask": self.categorical_crossentropy_with_mask})
+		self.model = load_model(f"{config.SAVE_FOLDER_PATH}/{name}", custom_objects={"huber_with_mask": self.huber_with_mask, "categorical_crossentropy_with_mask": self.categorical_crossentropy_with_mask})
 
-		with open("save_folder/save.json", "r") as f:
+		with open(f"{config.SAVE_FOLDER_PATH}/save.json", "r") as f:
 			self.metrics = json.loads(f.read())
 
-		with open("save_folder/default_boxes.json", "r") as f:
+		with open(f"{config.SAVE_FOLDER_PATH}/default_boxes.json", "r") as f:
 			reading = json.loads(f.read())
 			self.default_boxes = [CellBox(abs_coords=coords) for coords in reading]
 
 	def plot_model(self):
 		try:
-			plot_model(self.model, to_file="save_folder/model_architecture.png", show_shapes=True, show_layer_names=True)
+			plot_model(self.model, to_file=f"{config.SAVE_FOLDER_PATH}/model_architecture.png", show_shapes=True, show_layer_names=True)
 		except ImportError:
 			print("You need to install pydot and graphviz to plot model architecture.")
 
@@ -244,4 +245,4 @@ class SSD_Model:
 			ax.set_xscale("linear")
 			ax.legend()
 
-		plt.savefig("save_folder/metrics.png", dpi=200)
+		plt.savefig(f"{config.SAVE_FOLDER_PATH}/metrics.png", dpi=200)

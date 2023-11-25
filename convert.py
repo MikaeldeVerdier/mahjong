@@ -1,5 +1,6 @@
 import coremltools as ct
 
+import config
 from model import SSD_Model
 
 # tfmodel = SSD_Model((300, 300, 3), 40, load="/Users/mikaeldeverdier/mahjong/save_folder/model")
@@ -120,4 +121,4 @@ ct_model = ct.models.MLModel(pipeline.spec)
 nbits = 16  # 32
 quantized_model = ct.models.neural_network.quantization_utils.quantize_weights(ct_model, nbits)
 
-quantized_model.save("save_folder/output_model.mlpackage")
+quantized_model.save(f"{config.SAVE_FOLDER_PATH}/output_model.mlpackage")
