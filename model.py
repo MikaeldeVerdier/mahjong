@@ -140,6 +140,7 @@ class SSD_Model:
 
 		return loss
 
+	"""
 	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.1):
 		classes = tf.argmax(scores, axis=1)
 		non_backgrounds = classes != 0
@@ -165,6 +166,7 @@ class SSD_Model:
 		selected_boxes, selected_classes, selected_scores = self.postprocessing(bounding_boxes, class_preds[0], score_threshold=conf_threshold)
 
 		return selected_classes, selected_boxes, selected_scores
+	"""
 
 	def match_boxes(self, gt_boxes, threshold=0.5):
 		matches = []
@@ -248,21 +250,12 @@ class SSD_Model:
 
 		plt.savefig(f"{config.SAVE_FOLDER_PATH}/metrics.png", dpi=200)
 
-	def convert(self, labels, iou_threshold=0.45, conf_threshold=0.25, nbits=16, metadata_changes={}):
+	def convert_to_mlmodel(self, labels, iou_threshold=0.45, conf_threshold=0.25):
+		self.iou_threshold = iou_threshold
+		self.conf_threshold = conf_threshold
+
 		num_classes = len(labels)
 		num_boxes = len(self.default_boxes)
-		
-		metadata = {
-			"image_input_description": "Input image",
-			"iou_threshold_input_description": f"(optional) IOU threshold override (default: {str(iou_threshold)})",
-			"conf_threshold_input_description": f"(optional) Confidence threshold override (default: {str(conf_threshold)})",
-			"confidences_output_description": f"Found boxes × [conf_label1, conf_label2, ..., conf_label{num_classes}]",
-			"locations_output_description": "Found boxes × [x, y, width, height] (relative to image size)",
-			"general_description": "Object detector for Mahjong tiles",
-			"author": "Mikael de Verdier",
-			"additional": {}
-		}
-		metadata.update(metadata_changes)
 
 		mlmodel = ct.convert(
 			self.model,
@@ -341,20 +334,40 @@ class SSD_Model:
 		pipeline.spec.description.output[0].ParseFromString(nms_spec.description.output[0].SerializeToString())
 		pipeline.spec.description.output[1].ParseFromString(nms_spec.description.output[1].SerializeToString())
 
-		pipeline.spec.description.input[0].shortDescription = metadata["image_input_description"]
-		pipeline.spec.description.input[1].shortDescription = metadata["iou_threshold_input_description"]
-		pipeline.spec.description.input[2].shortDescription = metadata["conf_threshold_input_description"]
-
-		pipeline.spec.description.output[0].shortDescription = metadata["confidences_output_description"]
-		pipeline.spec.description.output[1].shortDescription = metadata["locations_output_description"]
-
-		pipeline.spec.description.metadata.shortDescription = metadata["general_description"]
-		pipeline.spec.description.metadata.author = metadata["author"]
-
-		pipeline.spec.description.metadata.userDefined.update(metadata["additional"])
 		pipeline.spec.specificationVersion = 5
 
-		ct_model = ct.models.MLModel(pipeline.spec)
-		quantized_model = ct.models.neural_network.quantization_utils.quantize_weights(ct_model, nbits)
+		self.mlmodel = ct.models.MLModel(pipeline.spec)
+	
+	def save_mlmodel(self, metadata_changes={}, precision_nbits=16):
+		pipeline_spec = self.mlmodel.get_spec()
 
+		num_classes = pipeline_spec.description.output[0].type.multiArrayType.shapeRange.sizeRanges[1].lowerBound
+
+		metadata = {
+			"image_input_description": "Input image",
+			"iou_threshold_input_description": f"(optional) IOU threshold override (default: {str(self.iou_threshold)})",
+			"conf_threshold_input_description": f"(optional) Confidence threshold override (default: {str(self.conf_threshold)})",
+			"confidences_output_description": f"Found boxes × [conf_label1, conf_label2, ..., conf_label{num_classes}]",
+			"locations_output_description": "Found boxes × [x, y, width, height] (relative to image size)",
+			"general_description": "Object detector for Mahjong tiles",
+			"author": "Mikael de Verdier",
+			"additional": {}
+		}
+		metadata.update(metadata_changes)
+
+		pipeline_spec.description.input[0].shortDescription = metadata["image_input_description"]
+		pipeline_spec.description.input[1].shortDescription = metadata["iou_threshold_input_description"]
+		pipeline_spec.description.input[2].shortDescription = metadata["conf_threshold_input_description"]
+
+		pipeline_spec.description.output[0].shortDescription = metadata["confidences_output_description"]
+		pipeline_spec.description.output[1].shortDescription = metadata["locations_output_description"]
+
+		pipeline_spec.description.metadata.shortDescription = metadata["general_description"]
+		pipeline_spec.description.metadata.author = metadata["author"]
+
+		pipeline_spec.description.metadata.userDefined.update(metadata["additional"])
+
+		ct_model = ct.models.MLModel(pipeline_spec)
+
+		quantized_model = ct.models.neural_network.quantization_utils.quantize_weights(ct_model, precision_nbits)
 		quantized_model.save(f"{config.SAVE_FOLDER_PATH}/output_model.mlpackage")

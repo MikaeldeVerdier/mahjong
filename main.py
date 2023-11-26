@@ -24,17 +24,17 @@ input_shape = (288, 512, 3)
 
 def preprocess_image(path):
     img = Image.open(path)
-    og_img_size = img.size
 
     img = img.resize(input_shape[:-1])
     img = img.convert("RGB")
-    img = np.moveaxis(np.array(img, dtype="float32"), 0, 1)
-    img /= 255.0
 
-    return img, og_img_size
+    return img
 
 
-def prepare_training(model, gt_boxes, label_indices):
+def prepare_training(model, image, gt_boxes, label_indices):
+    image = np.moveaxis(np.array(image, dtype="float32"), 0, 1)
+    image /= 255.0
+
     pos_indices = model.match_boxes(gt_boxes)
 
     locations = np.zeros((len(model.default_boxes), 4))
@@ -51,7 +51,7 @@ def prepare_training(model, gt_boxes, label_indices):
         mask[np.array(pos_indices)[:, 0]] = False
     confidences[mask, 0] = 1
 
-    return locations, confidences
+    return image, locations, confidences
 
 
 def prepare_dataset(model, path, training_ratio=0):
@@ -61,18 +61,18 @@ def prepare_dataset(model, path, training_ratio=0):
     training_first = len(annotations) * training_ratio
     for i, annotation in enumerate(annotations):
         img_path = os.path.join(path, annotation["image"])
-        image, og_img_size = preprocess_image(img_path)
+        image = preprocess_image(img_path)
 
         locations = []
         confidences = []
         for label in annotation["annotations"]:
-            scaled_coords = [val / og_img_size[key in ["y", "height"]] for key, val in label["coordinates"].items()]
+            scaled_coords = [val / image.size[key in ["y", "height"]] for key, val in label["coordinates"].items()]
             locations.append(CellBox(size_coords=scaled_coords))
 
             confidences.append(labels.index(label["label"]))
 
         if i < training_first:
-            locations, confidences = prepare_training(model, locations, confidences)
+            image, locations, confidences = prepare_training(model, image, locations, confidences)
 
         dataset.append([image, locations, confidences])
 
@@ -94,17 +94,17 @@ def retrain(model, dataset, iteration_amount, epochs):
             model.save_model("model")
 
 
-def inference(model, image, conf_threshold=0.1):
-    found_labels, found_boxes, confs = model.get_preds(image, conf_threshold=conf_threshold)
-    labeled_labels = np.array(labels)[found_labels]
-    scaled_boxes = [CellBox(abs_coords=box).scale_box(input_shape[:-1]) for box in found_boxes]
+def inference(model, image):  # PIL Image
+    locations, confidences = model.mlmodel.predict({"input_1": image}).values()
+    labeled_labels = np.array(labels)[np.argmax(confidences, axis=-1)]
+    scaled_boxes = [CellBox(abs_coords=box).scale_box(input_shape[:-1]) for box in locations]
 
-    label_infos = list(zip(labeled_labels, scaled_boxes, confs))
+    label_infos = list(zip(labeled_labels, scaled_boxes, confidences))
 
     return label_infos
 
 
-def evaluate(model, dataset, iou_threshold=0.5, conf_threshold=0.5):
+def evaluate(model, dataset, iou_threshold=0.5):
     amount_true_pos = 0
     amount_false_pos = 0
     amount_false_neg = 0
@@ -114,15 +114,15 @@ def evaluate(model, dataset, iou_threshold=0.5, conf_threshold=0.5):
 
         gt_boxes = [gt_box.scale_box(input_shape[:-1]) for gt_box in gt_boxes]
 
-        label_infos = inference(model, image, conf_threshold=conf_threshold)
+        label_infos = inference(model, image)
 
         for pred_label, box, _ in label_infos:
             if any(box.calculate_iou(gt_box) >= iou_threshold and labels[gt_label] == pred_label for gt_label, gt_box in zip(gt_labels, gt_boxes)):
-                iteration_true_pos += 1
+                iteration_true_pos += 1  # Can be right twice for same gt...
             else:
                 amount_false_pos += 1
         
-        amount_false_neg += len(gt_boxes) - iteration_true_pos
+        amount_false_neg += max(0, len(gt_boxes) - iteration_true_pos)  # ... resulting in this being needed. Could use abs instead to punish this behavior.
         amount_true_pos += iteration_true_pos
 
     metric_value = amount_true_pos / (amount_true_pos + amount_false_pos + amount_false_neg)
@@ -143,24 +143,15 @@ if __name__ == "__main__":
     model.save_model("model")
     model.plot_metrics()
 
+    model.convert_to_mlmodel(labels)
+
     testing_score = evaluate(model, testing_dataset)
     print(f"The model got a testing score of {testing_score}")
 
     metadata_changes = {
         "additional": {
             "Iterations trained": str(len(model.metrics["loss"])),
-            "Testing score": str(testing_score)
+            "Testing score": str(np.round(testing_score, 5))
         }
     }
-    model.convert(labels, metadata_changes=metadata_changes)
-
-    # testing_dataset = prepare_dataset(model, "datasets/SG-mahjong.v1i.tensorflow/test")
-    # metric_value = evaluate(model, testing_dataset)
-    # print(f"The model got a score of {metric_value}!")
-
-    # img_path = "datasets/SG-mahjong.v1i.tensorflow/test/local_sg_mahjong_with_animal_tiles_travel_size_1551811793_7e51a0d2_progressive_jpg.rf.0d5c4a5f78e69e58dc9788ae8d89e67d.jpg"
-    # infos = inference(model, img_path)
-
-    # img = Image.open(img_path).resize(input_shape[:-1])
-    # plot_infos(img, infos)
-    pass
+    model.save_mlmodel(metadata_changes=metadata_changes)
