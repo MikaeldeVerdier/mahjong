@@ -1,9 +1,11 @@
 # Training configuration
 TESTING_SPLIT = 0.7
-LEARNING_RATE = 1e-5
+LEARNING_RATE = 1e-7
+MOMENTUM = 0.9
+HARD_NEGATIVE_RATIO = 3
 BATCH_SIZE = 1
 TRAINING_ITERATIONS = 4
-EPOCHS = 5
+EPOCHS = 1
 
 # Saving configuration
 SAVE_FOLDER_PATH = "save_folder"

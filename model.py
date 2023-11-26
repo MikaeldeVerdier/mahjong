@@ -16,7 +16,7 @@ import config
 from default_box import default_boxes, CellBox
 
 class SSD_Model:
-	def __init__(self, input_shape, class_amount, lr=1e-5, momentum=0.9, hard_neg_ratio=3, load=False):
+	def __init__(self, input_shape, class_amount, lr=config.LEARNING_RATE, momentum=config.MOMENTUM, hard_neg_ratio=config.HARD_NEGATIVE_RATIO, load=False):
 		self.input_shape = input_shape
 		self.class_amount = class_amount
 		self.hard_neg_ratio = hard_neg_ratio
