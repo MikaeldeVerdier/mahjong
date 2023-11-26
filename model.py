@@ -168,7 +168,7 @@ class SSD_Model:
 		return selected_classes, selected_boxes, selected_scores
 	"""
 
-	def match_boxes(self, gt_boxes, threshold=0.5):
+	def match_boxes(self, gt_boxes, threshold=0.9):
 		matches = []
 		for i, gt_box in enumerate(gt_boxes):
 			gt_ious = [box.calculate_iou(gt_box) for box in self.default_boxes]
