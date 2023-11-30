@@ -85,7 +85,7 @@ class SSD_Model:
 		class_predictions = Concatenate(axis=1, name="confidences")(head_outputs[1])
 
 		self.model = Model(inputs=[base_network.input], outputs=[class_predictions, location_predictions])
-		self.model.compile(loss={"locations": self.huber_with_mask, "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=lr, momentum=momentum))  # , metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
+		self.model.compile(loss={"locations": self.huber_with_mask, "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=lr, momentum=momentum), loss_weights={"confidences": 1, "locations": 5})  # , metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
 
 		self.plot_model()
 		self.model.summary()
@@ -104,7 +104,7 @@ class SSD_Model:
 		neg_multiplier = tf.cast(neg_mask, tf.float32)
 		neg_losses *= neg_multiplier
 
-		sorted_neg_losses = tf.sort(neg_losses, direction="DESCENDING")
+		sorted_neg_losses = tf.sort(neg_losses, direction="DESCENDING")  # In SSD, this is traditionally sorted by CONFIDENCE loss, not locations.
 		ks = tf.expand_dims(tf.reduce_sum(tf.cast(pos_mask, tf.int32), axis=-1), axis=-1)
 
 		indices = tf.range(tf.shape(sorted_neg_losses)[-1])
@@ -353,7 +353,7 @@ class SSD_Model:
 			"author": "Mikael de Verdier",
 			"additional": {}
 		}
-		metadata.update(metadata_changes)
+		metadata |= metadata_changes
 
 		pipeline_spec.description.input[0].shortDescription = metadata["image_input_description"]
 		pipeline_spec.description.input[1].shortDescription = metadata["iou_threshold_input_description"]

@@ -1,9 +1,9 @@
 import numpy as np
 
-# TODO: Rework this entire file
+# TODO: Consider reworking this entire file
 
 def default_boxes(k, m, aspect_ratios, f):
-	def s(k, m, s_min=0.2, s_max=0.90):
+	def s(k, m, s_min=0.07, s_max=0.90):
 		return s_min + (s_max - s_min) / (m - 1) * (k - 1)
 
 	scale_i = s(k, m)
