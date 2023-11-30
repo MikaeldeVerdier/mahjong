@@ -64,7 +64,9 @@ class SSD_Model:
 		#
 
 		self.default_boxes = []
-		aspect_ratios = [0.75, 1, 1.33]
+		im_aspect_ratio = input_shape[0] / input_shape[1]
+		aspect_ratios = [0.67 / im_aspect_ratio, 1 / im_aspect_ratio, 1.33 / im_aspect_ratio]
+		self.boxes = []
 
 		head_outputs = [[], []]
 		for k, output in enumerate(outputs, 1):
