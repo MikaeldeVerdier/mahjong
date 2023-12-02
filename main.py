@@ -24,11 +24,12 @@ input_shape = (288, 512, 3)
 
 def preprocess_image(path):
     img = Image.open(path)
+    img_size = img.size
 
     img = img.resize(input_shape[:-1])
     img = img.convert("RGB")
 
-    return img
+    return img, img_size
 
 
 def prepare_training(model, image, gt_boxes, label_indices):
@@ -61,12 +62,12 @@ def prepare_dataset(model, path, training_ratio=0):
     training_first = len(annotations) * training_ratio
     for i, annotation in enumerate(annotations):
         img_path = os.path.join(path, annotation["image"])
-        image = preprocess_image(img_path)
+        image, image_size = preprocess_image(img_path)
 
         locations = []
         confidences = []
         for label in annotation["annotations"]:
-            scaled_coords = [val / image.size[key in ["y", "height"]] for key, val in label["coordinates"].items()]
+            scaled_coords = [val / image_size[key in ["y", "height"]] for key, val in label["coordinates"].items()]
             locations.append(CellBox(size_coords=scaled_coords))
 
             confidences.append(labels.index(label["label"]))

@@ -96,25 +96,26 @@ class SSD_Model:
 
 	def huber_with_mask(self, y_true, y_pred):
 		pos_losses = Huber(reduction="none")(y_true, y_pred)
-		neg_losses = pos_losses
 
 		pos_mask = tf.reduce_any(tf.not_equal(y_true, 0), axis=-1)
 		pos_multiplier = tf.cast(pos_mask, tf.float32)
 		pos_losses *= pos_multiplier
 
-		neg_mask = tf.logical_not(pos_mask)
-		neg_multiplier = tf.cast(neg_mask, tf.float32)
-		neg_losses *= neg_multiplier
+		# neg_mask = tf.logical_not(pos_mask)
+		# neg_multiplier = tf.cast(neg_mask, tf.float32)
+		# neg_losses *= neg_multiplier
 
-		sorted_neg_losses = tf.sort(neg_losses, direction="DESCENDING")  # In SSD, this is traditionally sorted by CONFIDENCE loss, not locations.
-		ks = tf.expand_dims(tf.reduce_sum(tf.cast(pos_mask, tf.int32), axis=-1), axis=-1)
+		# sorted_neg_losses = tf.sort(neg_losses, direction="DESCENDING")  # In SSD, this is traditionally sorted by CONFIDENCE loss, not locations.
+		# ks = tf.expand_dims(tf.reduce_sum(tf.cast(pos_mask, tf.int32), axis=-1), axis=-1)
 
-		indices = tf.range(tf.shape(sorted_neg_losses)[-1])
-		indices_expanded = tf.expand_dims(indices, axis=0)
-		mask_multiplier = tf.where(indices_expanded <= ks, tf.ones_like(indices_expanded, dtype=tf.float32), tf.zeros_like(indices_expanded, dtype=tf.float32))
-		top_neg_losses = mask_multiplier * sorted_neg_losses
+		# indices = tf.range(tf.shape(sorted_neg_losses)[-1])
+		# indices_expanded = tf.expand_dims(indices, axis=0)
+		# mask_multiplier = tf.where(indices_expanded <= ks, tf.ones_like(indices_expanded, dtype=tf.float32), tf.zeros_like(indices_expanded, dtype=tf.float32))
+		# top_neg_losses = mask_multiplier * sorted_neg_losses
 
-		loss = tf.reduce_sum(tf.concat([pos_losses, top_neg_losses], axis=-1), axis=-1)
+		# loss = tf.reduce_sum(tf.concat([pos_losses, top_neg_losses], axis=-1), axis=-1)
+
+		loss = tf.reduce_sum(pos_losses, axis=-1)
 
 		return loss
 
@@ -170,7 +171,7 @@ class SSD_Model:
 		return selected_classes, selected_boxes, selected_scores
 	"""
 
-	def match_boxes(self, gt_boxes, threshold=0.9):
+	def match_boxes(self, gt_boxes, threshold=0.5):  # Consider moving this to default_box.py
 		matches = []
 		for i, gt_box in enumerate(gt_boxes):
 			gt_ious = [box.calculate_iou(gt_box) for box in self.default_boxes]

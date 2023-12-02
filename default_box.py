@@ -1,4 +1,7 @@
 import numpy as np
+import matplotlib.pyplot as plt
+
+from matplotlib.patches import Rectangle
 
 # TODO: Consider reworking this entire file
 
@@ -49,16 +52,35 @@ class CellBox:
 		y2 = min(self.abs_coords[3], other_box.abs_coords[3])
 
 		intersection_box = CellBox(abs_coords=(x1, y1, x2, y2))
-		intersection_area = abs((intersection_box.size_coords[2] + 1) * (intersection_box.size_coords[3] + 1))
+		intersection_area = max(intersection_box.size_coords[2], 0) * max(intersection_box.size_coords[3], 0)
 
-		box_area = abs((self.size_coords[2] + 1) * (self.size_coords[3] + 1))
-		other_box_area = abs((other_box.size_coords[2] + 1) * (other_box.size_coords[3] + 1))
+		box_area = abs((self.size_coords[2]) * (self.size_coords[3]))
+		other_box_area = abs((other_box.size_coords[2]) * (other_box.size_coords[3]))
 
 		union_area = box_area + other_box_area - intersection_area
 
 		iou = intersection_area / union_area
 		
 		return iou
+	
+	"""
+	def plot_iou(self, other_box, img):
+		font = {
+			"color": "green"
+		}
+		
+		_, ax = plt.subplots()
+
+		plt.imshow(img)
+
+		ax.add_artist(Rectangle(((gt[0] - gt[2] / 2) * 288, (gt[1] - gt[3] / 2) * 512), gt[2] * 288, gt[3] * 512, linewidth=1, edgecolor="r", facecolor="none"))
+		ax.add_artist(Rectangle(((pos[0] - pos[2] / 2) * 288, (pos[1] - pos[3] / 2) * 512), pos[2] * 288, pos[3] * 512, linewidth=1, edgecolor="g", facecolor="none"))
+
+		plt.text(gt[0] * 288, (gt[1] - gt[3] / 2) * 512, f"IOU: {gt_boxes[gt_match].calculate_iou(model.default_boxes[pos_index]):.5f}", horizontalalignment="center", fontdict=font)
+
+		plt.savefig(f"boxes{i}.png")
+		plt.close()
+	"""
 
 	def calculate_offset(self, other_box):
 		cx = self.size_coords[0] - other_box.size_coords[0]
