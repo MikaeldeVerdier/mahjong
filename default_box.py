@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 
 from matplotlib.patches import Rectangle
 
+import config
+
 # TODO: Consider reworking this entire file
 
 def default_boxes(k, m, aspect_ratios, f):
@@ -75,7 +77,7 @@ class CellBox:
 		font = {"color": "green"}
 		plt.text(self.size_coords[0] * w, self.abs_coords[1] * h, f"IOU: {self.calculate_iou(other_box):.5f}", horizontalalignment="center", fontdict=font)
 
-		plt.savefig(name)
+		plt.savefig(f"{config.SAVE_PATH}/{name}")
 		plt.close()
 
 	def calculate_offset(self, other_box):
