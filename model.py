@@ -87,7 +87,7 @@ class SSD_Model:
 		class_predictions = Concatenate(axis=1, name="confidences")(head_outputs[1])
 
 		self.model = Model(inputs=[base_network.input], outputs=[class_predictions, location_predictions])
-		self.model.compile(loss={"locations": self.huber_with_mask, "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=lr, momentum=momentum), loss_weights={"confidences": 1, "locations": 5})  # , metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
+		self.model.compile(loss={"locations": self.huber_with_mask, "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=lr, momentum=momentum), loss_weights={"confidences": 1, "locations": 100})  # , metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
 
 		self.plot_model()
 		self.model.summary()
@@ -172,18 +172,20 @@ class SSD_Model:
 	"""
 
 	def match_boxes(self, gt_boxes, threshold=0.5):  # Consider moving this to default_box.py
+		if not len(gt_boxes):
+			return []
+		
 		matches = []
 		for i, gt_box in enumerate(gt_boxes):
 			gt_ious = [box.calculate_iou(gt_box) for box in self.default_boxes]
 
 			matches.append((np.argmax(gt_ious), i))
 
-		if len(gt_boxes):
-			for i, box in enumerate(self.default_boxes):
-				def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
+		for i, box in enumerate(self.default_boxes):
+			def_ious = [box.calculate_iou(gt_box) for gt_box in gt_boxes]
 
-				if max(def_ious) > threshold:
-					matches.append((i, np.argmax(def_ious)))
+			if max(def_ious) > threshold:
+				matches.append((i, np.argmax(def_ious)))
 
 		return matches
 	
