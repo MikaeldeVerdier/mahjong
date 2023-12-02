@@ -62,25 +62,21 @@ class CellBox:
 		iou = intersection_area / union_area
 		
 		return iou
-	
-	"""
-	def plot_iou(self, other_box, img):
-		font = {
-			"color": "green"
-		}
-		
+
+	def plot_iou(self, other_box, img, name="boxes.png"):
 		_, ax = plt.subplots()
 
 		plt.imshow(img)
 
-		ax.add_artist(Rectangle(((gt[0] - gt[2] / 2) * 288, (gt[1] - gt[3] / 2) * 512), gt[2] * 288, gt[3] * 512, linewidth=1, edgecolor="r", facecolor="none"))
-		ax.add_artist(Rectangle(((pos[0] - pos[2] / 2) * 288, (pos[1] - pos[3] / 2) * 512), pos[2] * 288, pos[3] * 512, linewidth=1, edgecolor="g", facecolor="none"))
+		w, h = img.size
+		for box, color in [(self, "r"), (other_box, "g")]:
+			ax.add_artist(Rectangle((box.abs_coords[0] * w, box.abs_coords[1] * h), box.size_coords[2] * w, box.size_coords[3] * h, linewidth=1, edgecolor=color, facecolor="none"))
 
-		plt.text(gt[0] * 288, (gt[1] - gt[3] / 2) * 512, f"IOU: {gt_boxes[gt_match].calculate_iou(model.default_boxes[pos_index]):.5f}", horizontalalignment="center", fontdict=font)
+		font = {"color": "green"}
+		plt.text(self.size_coords[0] * w, self.abs_coords[1] * h, f"IOU: {self.calculate_iou(other_box):.5f}", horizontalalignment="center", fontdict=font)
 
-		plt.savefig(f"boxes{i}.png")
+		plt.savefig(name)
 		plt.close()
-	"""
 
 	def calculate_offset(self, other_box):
 		cx = self.size_coords[0] - other_box.size_coords[0]
