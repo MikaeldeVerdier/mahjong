@@ -4,13 +4,14 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import coremltools as ct
 
-from keras.utils.vis_utils import plot_model
-from tensorflow.keras.applications import VGG16
-from tensorflow.keras.layers import Activation, Concatenate, Conv2D, Reshape
-from tensorflow.keras.losses import CategoricalCrossentropy, Huber
-from tensorflow.keras.metrics import MeanSquaredError, Accuracy
-from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.optimizers import SGD
+from keras.utils import plot_model
+from keras.applications import VGG16
+from keras.callbacks import TensorBoard
+from keras.layers import Activation, Concatenate, Conv2D, Reshape
+from keras.losses import CategoricalCrossentropy, Huber
+# from keras.metrics import MeanSquaredError, Accuracy
+from keras.models import Model, load_model
+from keras.optimizers import SGD
 
 import config
 from default_box import default_boxes, CellBox
@@ -214,7 +215,8 @@ class SSD_Model:
 
 		# loss = self.huber_with_mask(y_true, y_pred)
 
-		fit = self.model.fit(x, y, epochs=epochs)
+		callbacks = [TensorBoard(log_dir=f"{config.SAVE_FOLDER_PATH}/logs", histogram_freq=1, write_graph=True, write_images=True, update_freq="epoch", profile_batch=2, embeddings_freq=1)]
+		fit = self.model.fit(x, y, epochs=epochs, validation_split=config.VALIDATION_SPLIT, callbacks=callbacks)
 
 		for metric in self.metrics:
 			self.metrics[metric] += fit.history[metric]

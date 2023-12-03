@@ -33,15 +33,15 @@ def preprocess_image(path):
 
 
 def prepare_training(model, image, gt_boxes, label_indices):
-    image = np.moveaxis(np.array(image, dtype="float32"), 0, 1)
-    image /= 255.0
+    image_arr = np.moveaxis(np.array(image, dtype="float32"), 0, 1)
+    image_arr /= 255.0
 
     pos_indices = model.match_boxes(gt_boxes)
 
     locations = np.zeros((len(model.default_boxes), 4))
     confidences = np.zeros((len(model.default_boxes), label_amount), dtype="int32")
 
-    for pos_index, gt_match in pos_indices:
+    for pos_index, gt_match in set(pos_indices):
         offset = gt_boxes[gt_match].calculate_offset(model.default_boxes[pos_index])
 
         locations[pos_index] = offset
@@ -52,7 +52,7 @@ def prepare_training(model, image, gt_boxes, label_indices):
         mask[np.array(pos_indices)[:, 0]] = False
     confidences[mask, 0] = 1
 
-    return image, locations, confidences
+    return image_arr, locations, confidences
 
 
 def prepare_dataset(model, path, training_ratio=0):
@@ -134,8 +134,8 @@ def evaluate(model, dataset, iou_threshold=0.5):
 if __name__ == "__main__":
     model = SSD_Model(input_shape, label_amount)
 
-    dataset = prepare_dataset(model, "dataset", training_ratio=config.TESTING_SPLIT)
-    split_index = int(len(dataset) * config.TESTING_SPLIT)
+    dataset = prepare_dataset(model, "dataset", training_ratio=config.TRAINING_SPLIT)
+    split_index = int(len(dataset) * config.TRAINING_SPLIT)
     training_dataset = dataset[:split_index]
     testing_dataset = dataset[split_index:]
 
