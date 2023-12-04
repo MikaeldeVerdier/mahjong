@@ -77,7 +77,7 @@ class CellBox:
 		font = {"color": "green"}
 		plt.text(self.size_coords[0] * w, self.abs_coords[1] * h, f"IOU: {self.calculate_iou(other_box):.5f}", horizontalalignment="center", fontdict=font)
 
-		plt.savefig(f"{config.SAVE_PATH}/{name}")
+		plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}")
 		plt.close()
 
 	def calculate_offset(self, other_box):
@@ -96,7 +96,7 @@ class CellBox:
 		other_box = CellBox(size_coords=[cx, cy, w, h])
 
 		return other_box
-	
+
 	def scale_box(self, scalars):
 		new_abs_coords = self.abs_coords * np.tile(scalars, (2))
 		new_box = CellBox(abs_coords=new_abs_coords)

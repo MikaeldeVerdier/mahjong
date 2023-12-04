@@ -67,8 +67,11 @@ def prepare_dataset(model, path, training_ratio=0):
         locations = []
         confidences = []
         for label in annotation["annotations"]:
-            scaled_coords = [val / image_size[key in ["y", "height"]] for key, val in label["coordinates"].items()]
-            locations.append(CellBox(size_coords=scaled_coords))
+            box = CellBox(size_coords=label["coordinates"].values())
+            scaled_box = box.scale_box((1 / image_size[0], 1 / image_size[1]))
+            # scaled_coords = [val / image_size[key in ["y", "height"]] for key, val in label["coordinates"].items()]
+            # scaled_box2 = CellBox(size_coords=scaled_coords)
+            locations.append(scaled_box)
 
             confidences.append(labels.index(label["label"]))
 
