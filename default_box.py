@@ -81,16 +81,16 @@ class CellBox:
 		plt.close()
 
 	def calculate_offset(self, other_box):
-		cx = self.size_coords[0] - other_box.size_coords[0]
-		cy = self.size_coords[1] - other_box.size_coords[1]
+		cx = (self.size_coords[0] - other_box.size_coords[0]) / other_box.size_coords[2]
+		cy = (self.size_coords[1] - other_box.size_coords[1]) / other_box.size_coords[3]
 		w = np.log(self.size_coords[2] / other_box.size_coords[2])
 		h = np.log(self.size_coords[3] / other_box.size_coords[3])
 
 		return (cx, cy, w, h)
 
-	def apply_offset(self, offset):
-		cx = self.size_coords[0] + offset[0]
-		cy = self.size_coords[1] + offset[1]
+	def apply_offset(self, offset, other_box):
+		cx = self.size_coords[0] + offset[0] * other_box[2]
+		cy = self.size_coords[1] + offset[1] * other_box[3]
 		w = self.size_coords[2] * np.exp(offset[2])
 		h = self.size_coords[3] * np.exp(offset[3])
 		other_box = CellBox(size_coords=[cx, cy, w, h])
