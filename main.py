@@ -39,13 +39,13 @@ def prepare_training(model, image, gt_boxes, label_indices):
     pos_indices = model.match_boxes(gt_boxes)
 
     locations = np.zeros((len(model.default_boxes), 4))
-    confidences = np.zeros((len(model.default_boxes), label_amount), dtype="int32")
+    confidences = np.zeros((len(model.default_boxes), label_amount + 1), dtype="int32")
 
     for pos_index, gt_match in set(pos_indices):
         offset = gt_boxes[gt_match].calculate_offset(model.default_boxes[pos_index])
 
         locations[pos_index] = offset
-        confidences[pos_index, label_indices[gt_match]] = 1
+        confidences[pos_index, label_indices[gt_match] + 1] = 1
 
     mask = np.ones(len(confidences), dtype="bool")
     if len(gt_boxes):
@@ -100,7 +100,7 @@ def retrain(model, dataset, iteration_amount, epochs):
 
 def inference(model, image):  # PIL Image
     locations, confidences = model.mlmodel.predict({"input_1": image}).values()
-    labeled_labels = np.array(labels)[np.argmax(confidences, axis=-1)]
+    labeled_labels = np.array(labels)[np.argmax(confidences, axis=-1) - 1]
     scaled_boxes = [CellBox(abs_coords=box).scale_box(input_shape[:-1]) for box in locations]
 
     label_infos = list(zip(labeled_labels, scaled_boxes, confidences))
@@ -126,7 +126,7 @@ def evaluate(model, dataset, iou_threshold=0.5):
             else:
                 amount_false_pos += 1
         
-        amount_false_neg += max(0, len(gt_boxes) - iteration_true_pos)  # ... resulting in this being needed. Could use abs instead to punish this behavior.
+        amount_false_neg += max(0, len(gt_boxes) - iteration_true_pos)  # ... resulting in this max being needed. Could use abs instead to punish this behavior.
         amount_true_pos += iteration_true_pos
 
     metric_value = amount_true_pos / (amount_true_pos + amount_false_pos + amount_false_neg)
