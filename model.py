@@ -122,7 +122,6 @@ class SSD_Model:
 
 	def categorical_crossentropy_with_mask(self, y_true, y_pred):
 		pos_losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
-		print(pos_losses)
 		neg_losses = pos_losses
 
 		pos_mask = tf.not_equal(y_true[:, :, 0], 1)
@@ -134,7 +133,7 @@ class SSD_Model:
 		neg_losses *= neg_multiplier
 
 		sorted_neg_losses = tf.sort(neg_losses, direction="DESCENDING")
-		ks = tf.expand_dims(tf.reduce_sum(tf.cast(pos_mask, tf.int32), axis=-1), axis=-1)
+		ks = tf.expand_dims(tf.reduce_sum(tf.cast(pos_mask, tf.int32), axis=-1) * tf.constant(self.hard_neg_ratio), axis=-1)
 
 		indices = tf.range(tf.shape(sorted_neg_losses)[-1])
 		indices_expanded = tf.expand_dims(indices, axis=0)
