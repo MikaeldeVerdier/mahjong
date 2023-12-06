@@ -70,7 +70,7 @@ class CellBox:
 		plt.imshow(img)
 
 		w, h = img.size
-		for box, color in [(self, "r"), (other_box, "g")]:
+		for box, color in [(self, "g"), (other_box, "r")]:
 			ax.add_artist(Rectangle((box.abs_coords[0] * w, box.abs_coords[1] * h), box.size_coords[2] * w, box.size_coords[3] * h, linewidth=1, edgecolor=color, facecolor="none"))
 
 		font = {"color": "green"}

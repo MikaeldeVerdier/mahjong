@@ -59,7 +59,7 @@ def prepare_dataset(model, path, training_ratio=0):
     dataset = []
     annotations = files.load(path)
 
-    training_first = len(annotations) * training_ratio
+    amount_training = int(len(annotations) * training_ratio)
     for i, annotation in enumerate(annotations):
         img_path = os.path.join(path, annotation["image"])
         image, image_size = preprocess_image(img_path)
@@ -75,12 +75,12 @@ def prepare_dataset(model, path, training_ratio=0):
 
             confidences.append(labels.index(label["label"]))
 
-        if i < training_first:
+        if i < amount_training:
             image, locations, confidences = prepare_training(model, image, locations, confidences)
 
         dataset.append([image, locations, confidences])
 
-    return dataset
+    return dataset, amount_training
 
 
 def retrain(model, dataset, iteration_amount, epochs):
@@ -137,8 +137,7 @@ def evaluate(model, dataset, iou_threshold=0.5):
 if __name__ == "__main__":
     model = SSD_Model(input_shape, label_amount)
 
-    dataset = prepare_dataset(model, "dataset", training_ratio=config.TRAINING_SPLIT)
-    split_index = int(len(dataset) * config.TRAINING_SPLIT)
+    dataset, split_index = prepare_dataset(model, "dataset", training_ratio=config.TRAINING_SPLIT)
     training_dataset = dataset[:split_index]
     testing_dataset = dataset[split_index:]
 

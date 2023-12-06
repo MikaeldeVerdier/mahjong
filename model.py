@@ -219,8 +219,9 @@ class SSD_Model:
 		callbacks = []  # [TensorBoard(log_dir=f"{config.SAVE_FOLDER_PATH}/logs", histogram_freq=1, write_graph=True, write_images=True, update_freq="epoch", profile_batch=2, embeddings_freq=1)]
 		fit = self.model.fit(x, y, epochs=epochs, validation_split=config.VALIDATION_SPLIT, callbacks=callbacks)
 
-		for metric in self.metrics:
-			self.metrics[metric] += fit.history[metric]
+		for metric in fit.history:
+			if metric in self.metrics:
+				self.metrics[metric] += fit.history[metric]
 
 	def save_model(self, name):
 		self.model.save(f"{config.SAVE_FOLDER_PATH}/{name}")
