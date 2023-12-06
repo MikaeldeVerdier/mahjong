@@ -6,7 +6,7 @@ import coremltools as ct
 
 from keras.utils import plot_model
 from keras.applications import VGG16
-from keras.callbacks import TensorBoard
+# from keras.callbacks import TensorBoard
 from keras.layers import Activation, Concatenate, Conv2D, Reshape
 from keras.losses import CategoricalCrossentropy, Huber
 # from keras.metrics import MeanSquaredError, Accuracy
@@ -19,7 +19,7 @@ from default_box import default_boxes, CellBox
 class SSD_Model:
 	def __init__(self, input_shape, class_amount, lr=config.LEARNING_RATE, momentum=config.MOMENTUM, hard_neg_ratio=config.HARD_NEGATIVE_RATIO, load=False):
 		self.input_shape = input_shape
-		self.class_amount = class_amount
+		# self.class_amount = class_amount
 		self.hard_neg_ratio = hard_neg_ratio
 
 		if load is not False:
@@ -66,7 +66,7 @@ class SSD_Model:
 
 		self.default_boxes = []
 		im_aspect_ratio = input_shape[0] / input_shape[1]
-		aspect_ratios = [0.67 / im_aspect_ratio, 1 / im_aspect_ratio, 1.33 / im_aspect_ratio]
+		aspect_ratios = [ar / im_aspect_ratio for ar in [0.67, 1, 1.33]]
 		self.boxes = []
 
 		head_outputs = [[], []]
@@ -79,8 +79,8 @@ class SSD_Model:
 			location_pred = Reshape((-1, 4))(location_pred)
 			head_outputs[0].append(location_pred)
 
-			class_pred = Conv2D(filters=len(defaults) * class_amount, kernel_size=(3, 3), strides=(1, 1), padding="same")(output)
-			class_pred = Reshape((-1, class_amount))(class_pred)
+			class_pred = Conv2D(filters=len(defaults) * (class_amount + 1), kernel_size=(3, 3), strides=(1, 1), padding="same")(output)
+			class_pred = Reshape((-1, (class_amount + 1)))(class_pred)
 			class_pred = Activation("softmax")(class_pred)
 			head_outputs[1].append(class_pred)
 
@@ -93,7 +93,7 @@ class SSD_Model:
 		self.plot_model()
 		self.model.summary()
 
-		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": []}  # , "locations_mean_squared_error": [], "confidences_accuracy": []}
+		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "val_locations_loss": [], "val_confidences_loss": []}  # , "locations_mean_squared_error": [], "confidences_accuracy": []}
 
 	def huber_with_mask(self, y_true, y_pred):
 		pos_losses = Huber(reduction="none")(y_true, y_pred)
@@ -122,6 +122,7 @@ class SSD_Model:
 
 	def categorical_crossentropy_with_mask(self, y_true, y_pred):
 		pos_losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
+		print(pos_losses)
 		neg_losses = pos_losses
 
 		pos_mask = tf.not_equal(y_true[:, :, 0], 1)
@@ -215,7 +216,7 @@ class SSD_Model:
 
 		# loss = self.huber_with_mask(y_true, y_pred)
 
-		callbacks = [TensorBoard(log_dir=f"{config.SAVE_FOLDER_PATH}/logs", histogram_freq=1, write_graph=True, write_images=True, update_freq="epoch", profile_batch=2, embeddings_freq=1)]
+		callbacks = []  # [TensorBoard(log_dir=f"{config.SAVE_FOLDER_PATH}/logs", histogram_freq=1, write_graph=True, write_images=True, update_freq="epoch", profile_batch=2, embeddings_freq=1)]
 		fit = self.model.fit(x, y, epochs=epochs, validation_split=config.VALIDATION_SPLIT, callbacks=callbacks)
 
 		for metric in self.metrics:
@@ -257,7 +258,7 @@ class SSD_Model:
 
 		plt.savefig(f"{config.SAVE_FOLDER_PATH}/metrics.png", dpi=200)
 
-	def convert_to_mlmodel(self, labels, iou_threshold=0.45, conf_threshold=0.25):
+	def convert_to_mlmodel(self, labels, iou_threshold=0.45, conf_threshold=0.25):  # TODO: Decoding needed
 		self.iou_threshold = iou_threshold
 		self.conf_threshold = conf_threshold
 

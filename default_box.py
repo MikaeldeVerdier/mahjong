@@ -11,6 +11,7 @@ def default_boxes(k, m, aspect_ratios, f):
 		return s_min + (s_max - s_min) / (m - 1) * (k - 1)
 
 	scale_i = s(k, m)
+	print(scale_i)
 	extra_box_scale = (scale_i * s(k + 1, m)) ** 0.5
 
 	anchor_boxes = [DefaultBox(scale_i, aspect_ratio, f) for aspect_ratio in aspect_ratios] + [DefaultBox(extra_box_scale, 1, f)]
