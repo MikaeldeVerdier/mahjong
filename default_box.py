@@ -88,8 +88,8 @@ class CellBox:
 		return (cx, cy, w, h)
 
 	def apply_offset(self, offset, other_box):
-		cx = self.size_coords[0] + offset[0] * other_box[2]
-		cy = self.size_coords[1] + offset[1] * other_box[3]
+		cx = self.size_coords[0] + offset[0] * other_box.size_coords[2]
+		cy = self.size_coords[1] + offset[1] * other_box.size_coords[3]
 		w = self.size_coords[2] * np.exp(offset[2])
 		h = self.size_coords[3] * np.exp(offset[3])
 		other_box = CellBox(size_coords=[cx, cy, w, h])
