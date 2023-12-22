@@ -43,7 +43,7 @@ class SSD_Model:
 		x = base_network.get_layer("block5_conv3").output
 
 		# Auxiliary layers
-		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", activation="relu")(x)
+		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", dilation_rate=(6, 6), activation="relu")(x)
 		x = Conv2D(filters=1024, kernel_size=(1, 1), activation="relu")(x)
 		outputs.append(x)
 
@@ -75,11 +75,11 @@ class SSD_Model:
 			for default in defaults:
 				self.default_boxes += default.cells
 
-			location_pred = Conv2D(filters=len(defaults) * 4, kernel_size=(3, 3), strides=(1, 1), padding="same")(output)
+			location_pred = Conv2D(filters=len(defaults) * 4, kernel_size=(3, 3), padding="same")(output)
 			location_pred = Reshape((-1, 4))(location_pred)
 			head_outputs[0].append(location_pred)
 
-			class_pred = Conv2D(filters=len(defaults) * (class_amount + 1), kernel_size=(3, 3), strides=(1, 1), padding="same")(output)
+			class_pred = Conv2D(filters=len(defaults) * (class_amount + 1), kernel_size=(3, 3), padding="same")(output)
 			class_pred = Reshape((-1, (class_amount + 1)))(class_pred)
 			class_pred = Activation("softmax")(class_pred)
 			head_outputs[1].append(class_pred)
