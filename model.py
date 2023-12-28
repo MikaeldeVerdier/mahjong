@@ -43,7 +43,7 @@ class SSD_Model:
 		x = base_network.get_layer("block5_conv3").output
 
 		# Auxiliary layers
-		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", dilation_rate=(6, 6), activation="relu")(x)
+		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", activation="relu")(x)
 		x = Conv2D(filters=1024, kernel_size=(1, 1), activation="relu")(x)
 		outputs.append(x)
 
@@ -80,7 +80,7 @@ class SSD_Model:
 			head_outputs[0].append(location_pred)
 
 			class_pred = Conv2D(filters=len(defaults) * (class_amount + 1), kernel_size=(3, 3), padding="same")(output)
-			class_pred = Reshape((-1, (class_amount + 1)))(class_pred)
+			class_pred = Reshape((-1, class_amount + 1))(class_pred)
 			class_pred = Activation("softmax")(class_pred)
 			head_outputs[1].append(class_pred)
 
@@ -258,13 +258,7 @@ class SSD_Model:
 
 		plt.savefig(f"{config.SAVE_FOLDER_PATH}/metrics.png", dpi=200)
 
-	def convert_to_mlmodel(self, labels, iou_threshold=0.45, conf_threshold=0.25):  # TODO: Decoding needed
-		self.iou_threshold = iou_threshold
-		self.conf_threshold = conf_threshold
-
-		num_classes = len(labels)
-		num_boxes = len(self.default_boxes)
-
+	def create_base_model(self, num_classes, num_boxes):
 		mlmodel = ct.convert(
 			self.model,
 			inputs=[ct.ImageType("input_1", shape=(1,) + self.input_shape[-2::-1] + self.input_shape[-1:])]
@@ -272,21 +266,126 @@ class SSD_Model:
 
 		spec = mlmodel.get_spec()
 
-		new_names = ["raw_confidence", "raw_coordinates"]
-		output_sizes = [num_classes, 4]
+		new_names = ["confidences", "locations"]
+		output_sizes = [num_classes + 1, 4]
 		for i in range(2):
 			old_name = spec.description.output[i].name
 			ct.utils.rename_feature(spec, old_name, new_names[i])
-			spec.description.output[i].type.multiArrayType.shape.extend([num_boxes, output_sizes[i]])
+			spec.description.output[i].type.multiArrayType.shape.extend([1, num_boxes, output_sizes[i]])
 			spec.description.output[i].type.multiArrayType.dataType = ct.proto.FeatureTypes_pb2.ArrayFeatureType.DOUBLE
 
 		mlmodel = ct.models.MLModel(spec)
 
+		return mlmodel
+	
+	def build_decoder(self, num_classes, num_boxes):
+		input_features = [
+			("confidences", ct.models.datatypes.Array(1, num_boxes, num_classes + 1)),
+			("locations", ct.models.datatypes.Array(1, num_boxes, 4))
+		]
+
+		output_features = [
+			("raw_confidence", ct.models.datatypes.Array(num_boxes, num_classes)),
+			("raw_coordinates", ct.models.datatypes.Array(num_boxes, 4))
+		]
+
+		builder = ct.models.neural_network.NeuralNetworkBuilder(input_features, output_features)
+
+		# builder.add_permute(name="permute_scores", dim=(0, 1, 2, 3), input_name="scores", output_name="permute_scores_output")
+		builder.add_slice(name="slice_scores_layer", input_name="confidences", output_name="raw_confidence", axis="width", start_index=1, end_index=num_classes + 1)
+
+		builder.add_permute(name="permute_locations_layer", dim=(0, 3, 2, 1), input_name="locations", output_name="permute_locations")		
+		builder.add_slice(name="slice_wh_layer", input_name="permute_locations", output_name="slice_wh", axis="channel", start_index=2, end_index=4)
+		builder.add_slice(name="slice_xy_layer", input_name="permute_locations", output_name="slice_xy", axis="channel", start_index=0, end_index=2)
+		
+		defaults_xy, defaults_wh = zip(*[(default_box.size_coords[:2], default_box.size_coords[2:]) for default_box in self.default_boxes])
+
+		defaults_xy = np.moveaxis(defaults_xy, 0, 1)
+		defaults_wh = np.moveaxis(defaults_wh, 0, 1)
+		defaults_xy = np.expand_dims(defaults_xy, axis=-1)
+		defaults_wh = np.expand_dims(defaults_wh, axis=-1)
+
+		builder.add_load_constant(name="defaults_xy_layer", output_name="defaults_xy", constant_value=defaults_xy, shape=[2, num_boxes, 1])
+		builder.add_load_constant(name="defaults_wh_layer", output_name="defaults_wh", constant_value=defaults_wh, shape=[2, num_boxes, 1])
+
+		builder.add_elementwise(name="xw_times_yh_layer", input_names=["slice_xy", "defaults_wh"], output_name="yw_times_wh", mode="MULTIPLY")
+		builder.add_elementwise(name="decoded_xy_layer", input_names=["yw_times_wh", "defaults_xy"], output_name="decoded_xy", mode="ADD")
+
+		builder.add_unary(name="exp_wh_layer", input_name="slice_wh", output_name="exp_wh", mode="exp")
+		builder.add_elementwise(name="decoded_wh_layer", input_names=["exp_wh", "defaults_wh"], output_name="decoded_wh", mode="MULTIPLY")
+
+		builder.add_slice(name="slice_x_layer", input_name="decoded_xy", output_name="slice_x", axis="channel", start_index=0, end_index=1)
+		builder.add_slice(name="slice_y_layer", input_name="decoded_xy", output_name="slice_y", axis="channel", start_index=1, end_index=2)
+		builder.add_slice(name="slice_w_layer", input_name="decoded_wh", output_name="slice_w", axis="channel", start_index=0, end_index=1)
+		builder.add_slice(name="slice_h_layer", input_name="decoded_wh", output_name="slice_h", axis="channel", start_index=1, end_index=2)
+
+		builder.add_elementwise(name="concat_layer", input_names=["slice_x", "slice_y", "slice_w", "slice_h"], output_name="concat", mode="CONCAT")
+
+		builder.add_permute(name="permute_concat_layer", dim=(0, 3, 2, 1), input_name="concat", output_name="raw_coordinates")
+
+		decoder_model = ct.models.MLModel(builder.spec)
+
+		return decoder_model
+
+	""" Written by me, doesn't permute but gets different result
+	def build_decoder(self, num_classes, num_boxes):
+		input_features = [
+			("confidences", ct.models.datatypes.Array(1, num_boxes, num_classes + 1)),
+			("locations", ct.models.datatypes.Array(1, num_boxes, 4))
+		]
+
+		output_features = [
+			("raw_confidence", ct.models.datatypes.Array(num_boxes, num_classes)),
+			("raw_coordinates", ct.models.datatypes.Array(num_boxes, 4))
+		]
+
+		builder = ct.models.neural_network.NeuralNetworkBuilder(input_features, output_features)
+
+		# Consider permuting to get a shape that matches the tutorial		
+		builder.add_slice(name="slice_wh_layer", input_name="locations", output_name="slice_wh", axis="width", start_index=2, end_index=4)
+		builder.add_slice(name="slice_xy_layer", input_name="locations", output_name="slice_xy", axis="width", start_index=0, end_index=2)
+		
+		defaults_xy, defaults_wh = zip(*[(default_box.size_coords[:2], default_box.size_coords[2:]) for default_box in self.default_boxes])
+
+		defaults_xy = np.expand_dims(defaults_xy, axis=0)
+		defaults_wh = np.expand_dims(defaults_wh, axis=0)
+
+		# defaults_xy = []
+		# defaults_wh = []
+		# for default_box in self.default_boxes:
+		# 	defaults_xy.append(default_box.size_coords[:2])
+		# 	defaults_wh.append(default_box.size_coords[2:])
+		# builder.add_slice(name="slice_scores_layer", input_name="confidences", output_name="raw_confidence", axis="width", start_index=1, end_index=num_classes + 1)
+
+		builder.add_load_constant(name="defaults_xy_layer", output_name="defaults_xy", constant_value=defaults_xy, shape=[1, num_boxes, 2])
+		builder.add_load_constant(name="defaults_wh_layer", output_name="defaults_wh", constant_value=defaults_wh, shape=[1, num_boxes, 2])
+
+		builder.add_elementwise(name="xw_times_yh_layer", input_names=["slice_xy", "defaults_wh"], output_name="yw_times_wh", mode="MULTIPLY")
+		builder.add_elementwise(name="decoded_xy_layer", input_names=["yw_times_wh", "defaults_xy"], output_name="decoded_xy", mode="ADD")
+
+		builder.add_unary(name="exp_wh_layer", input_name="slice_wh", output_name="exp_wh", mode="exp")
+		builder.add_elementwise(name="decoded_wh_layer", input_names=["exp_wh", "defaults_wh"], output_name="decoded_wh", mode="MULTIPLY")
+
+		builder.add_slice(name="slice_x_layer", input_name="decoded_xy", output_name="slice_x", axis="width", start_index=0, end_index=1)
+		builder.add_slice(name="slice_y_layer", input_name="decoded_xy", output_name="slice_y", axis="width", start_index=1, end_index=2)
+		builder.add_slice(name="slice_w_layer", input_name="decoded_wh", output_name="slice_w", axis="width", start_index=0, end_index=1)
+		builder.add_slice(name="slice_h_layer", input_name="decoded_wh", output_name="slice_h", axis="width", start_index=1, end_index=2)
+
+		builder.add_elementwise(name="concat_layer", input_names=["slice_x", "slice_y", "slice_w", "slice_h"], output_name="raw_coordinates", mode="CONCAT")
+
+		# builder.add_permute(name="permute_output", dim=(0, 1, 2, 3), input_name="concat_output", output_name="raw_coordinates")
+
+		decoder_model = ct.models.MLModel(builder.spec)
+
+		return decoder_model
+	"""
+
+	def create_nms_model(self, num_classes, previous_model, iou_threshold, conf_threshold, labels):
 		nms_spec = ct.proto.Model_pb2.Model()
 		nms_spec.specificationVersion = 5
 
 		for i in range(2):
-			decoder_output = spec.description.output[i].SerializeToString()
+			decoder_output = previous_model.get_spec().description.output[i].SerializeToString()
 
 			nms_spec.description.input.add()
 			nms_spec.description.input[i].ParseFromString(decoder_output)
@@ -297,14 +396,15 @@ class SSD_Model:
 		nms_spec.description.output[0].name = "confidence"
 		nms_spec.description.output[1].name = "coordinates"
 		
+		nms_output_sizes = [num_classes, 4]
 		for i in range(2):
 			ma_type = nms_spec.description.output[i].type.multiArrayType
 			ma_type.shapeRange.sizeRanges.add()
 			ma_type.shapeRange.sizeRanges[0].lowerBound = 0
 			ma_type.shapeRange.sizeRanges[0].upperBound = -1
 			ma_type.shapeRange.sizeRanges.add()
-			ma_type.shapeRange.sizeRanges[1].lowerBound = output_sizes[i]
-			ma_type.shapeRange.sizeRanges[1].upperBound = output_sizes[i]
+			ma_type.shapeRange.sizeRanges[1].lowerBound = nms_output_sizes[i]
+			ma_type.shapeRange.sizeRanges[1].upperBound = nms_output_sizes[i]
 			del ma_type.shape[:]
 
 		nms = nms_spec.nonMaximumSuppression
@@ -322,6 +422,9 @@ class SSD_Model:
 
 		nms_model = ct.models.MLModel(nms_spec)
 
+		return nms_model
+	
+	def create_pipeline(self, models):
 		input_features = [
 			("input_1", ct.models.datatypes.Array(0)),  # Doesn't matter, is changed later anyway
 			("iouThreshold", ct.models.datatypes.Double()),
@@ -332,19 +435,38 @@ class SSD_Model:
 
 		pipeline = ct.models.pipeline.Pipeline(input_features, output_features)
 
-		pipeline.add_model(mlmodel)
-		pipeline.add_model(nms_model)
+		for model in models:
+			pipeline.add_model(model)
+
+		# pipeline.add_model(mlmodel)
+		# pipeline.add_model(decoder_model)
+		# pipeline.add_model(nms_model)
 
 		pipeline.spec.description.input[1].type.isOptional = True
 		pipeline.spec.description.input[2].type.isOptional = True
 
-		pipeline.spec.description.input[0].ParseFromString(spec.description.input[0].SerializeToString())
-		pipeline.spec.description.output[0].ParseFromString(nms_spec.description.output[0].SerializeToString())
-		pipeline.spec.description.output[1].ParseFromString(nms_spec.description.output[1].SerializeToString())
+		pipeline.spec.description.input[0].ParseFromString(models[0].get_spec().description.input[0].SerializeToString())
+		pipeline.spec.description.output[0].ParseFromString(models[-1].get_spec().description.output[0].SerializeToString())
+		pipeline.spec.description.output[1].ParseFromString(models[-1].get_spec().description.output[1].SerializeToString())
 
 		pipeline.spec.specificationVersion = 5
 
-		self.mlmodel = ct.models.MLModel(pipeline.spec)
+		pipeline_model = ct.models.MLModel(pipeline.spec)
+		
+		return pipeline_model
+
+	def convert_to_mlmodel(self, labels, exp, iou_threshold=0.45, conf_threshold=0.25):  # TODO: Decoding needed
+		self.iou_threshold = iou_threshold
+		self.conf_threshold = conf_threshold
+
+		num_classes = len(labels)
+		num_boxes = len(self.default_boxes)
+
+		mlmodel = self.create_base_model(num_classes, num_boxes)
+		decoder_model = self.build_decoder(num_classes, num_boxes) if not exp else self.build_decoder2(num_classes, num_boxes)
+		nms_model = self.create_nms_model(num_classes, decoder_model, iou_threshold, conf_threshold, labels)
+		
+		self.mlmodel = self.create_pipeline([mlmodel, decoder_model, nms_model])
 	
 	def save_mlmodel(self, metadata_changes={}, precision_nbits=16):
 		pipeline_spec = self.mlmodel.get_spec()
