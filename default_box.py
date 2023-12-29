@@ -64,17 +64,23 @@ class CellBox:
 		
 		return iou
 
-	def plot_iou(self, other_box, img, name="boxes.png"):
+	def plot_iou(self, other_box, img, name="boxes.png", scale_coords=False):
 		_, ax = plt.subplots()
 
 		plt.imshow(img)
 
 		w, h = img.size
 		for box, color in [(self, "g"), (other_box, "r")]:
-			ax.add_artist(Rectangle((box.abs_coords[0] * w, box.abs_coords[1] * h), box.size_coords[2] * w, box.size_coords[3] * h, linewidth=1, edgecolor=color, facecolor="none"))
+			if scale_coords:
+				box = box.scale_box((w, h))
+			ax.add_artist(Rectangle((box.abs_coords[0], box.abs_coords[1]), box.size_coords[2], box.size_coords[3], linewidth=1, edgecolor=color, facecolor="none"))
 
 		font = {"color": "green"}
-		plt.text(self.size_coords[0] * w, self.abs_coords[1] * h, f"IOU: {self.calculate_iou(other_box):.5f}", horizontalalignment="center", fontdict=font)
+		left, top = self.size_coords[0], self.abs_coords[1]
+		if scale_coords:
+			left *= w
+			top *= h
+		plt.text(left, top, f"IOU: {self.calculate_iou(other_box):.5f}", horizontalalignment="center", fontdict=font)
 
 		plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}")
 		plt.close()

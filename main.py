@@ -121,6 +121,9 @@ def evaluate(model, dataset, iou_threshold=0.5):
         label_infos = inference(model, image)
 
         for pred_label, box, _ in label_infos:
+            # for gt_box in gt_boxes:
+            #     gt_box.plot_iou(box, image, name=str(hash(gt_box) + hash(box)))
+
             if any(box.calculate_iou(gt_box) >= iou_threshold and labels[gt_label] == pred_label for gt_label, gt_box in zip(gt_labels, gt_boxes)):
                 iteration_true_pos += 1  # Can be right twice for same gt...
             else:
