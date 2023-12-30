@@ -46,7 +46,7 @@ class CellBox:
 		self.size_coords = (cx, cy, w, h)
 		self.abs_coords = (min_x, min_y, max_x, max_y)
 
-	def calculate_iou(self, other_box):
+	def calculate_iou(self, other_box):  # Somethings wrong sometimes?
 		x1 = max(self.abs_coords[0], other_box.abs_coords[0])
 		y1 = max(self.abs_coords[1], other_box.abs_coords[1])
 		x2 = min(self.abs_coords[2], other_box.abs_coords[2])
@@ -85,7 +85,7 @@ class CellBox:
 		plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}")
 		plt.close()
 
-	def calculate_offset(self, other_box):
+	def calculate_offset(self, other_box):  # Could make this handle batches, for optimization
 		cx = (self.size_coords[0] - other_box.size_coords[0]) / other_box.size_coords[2]
 		cy = (self.size_coords[1] - other_box.size_coords[1]) / other_box.size_coords[3]
 		w = np.log(self.size_coords[2] / other_box.size_coords[2])

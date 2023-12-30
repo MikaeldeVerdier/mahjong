@@ -101,7 +101,7 @@ def retrain(model, dataset, iteration_amount, epochs):
 def inference(model, image):  # PIL Image
     locations, confidences = model.mlmodel.predict({"input_1": image}).values()
     labeled_labels = np.array(labels)[np.argmax(confidences, axis=-1) - 1]
-    scaled_boxes = [CellBox(abs_coords=box).scale_box(input_shape[:-1]) for box in locations]
+    scaled_boxes = [CellBox(size_coords=box).scale_box(input_shape[:-1]) for box in locations]
 
     label_infos = list(zip(labeled_labels, scaled_boxes, confidences))
 
