@@ -4,7 +4,7 @@ from matplotlib.patches import Rectangle
 
 import config
 
-# TODO: Consider reworking this entire file
+# TODO: Consider reworking this entire file, make it handle batches for faster data prep
 
 def default_boxes(k, m, aspect_ratios, f):
 	def s(k, m, s_min=0.07, s_max=0.6):

@@ -16,7 +16,7 @@ from keras.optimizers import SGD
 import config
 from default_box import default_boxes, CellBox
 
-class SSD_Model:
+class SSD_Model:  # Consider instead saving weights, and using a seperate training and inference model (to decode in model)
 	def __init__(self, input_shape, class_amount, lr=config.LEARNING_RATE, momentum=config.MOMENTUM, hard_neg_ratio=config.HARD_NEGATIVE_RATIO, load=False):
 		self.input_shape = input_shape
 		self.class_amount = class_amount
@@ -67,7 +67,6 @@ class SSD_Model:
 		self.default_boxes = []
 		im_aspect_ratio = input_shape[0] / input_shape[1]
 		aspect_ratios = [ar / im_aspect_ratio for ar in [0.67, 1, 1.33]]
-		self.boxes = []
 
 		head_outputs = [[], []]
 		for k, output in enumerate(outputs, 1):
