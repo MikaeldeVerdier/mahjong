@@ -20,20 +20,20 @@ labels = [
 ]
 label_amount = len(labels)
 
-input_shape = (288, 512, 3)
+input_shape = (512, 288, 3)
 
 def preprocess_image(path):
     img = Image.open(path)
     img_size = img.size
 
-    img = img.resize(input_shape[:-1])
+    img = img.resize(input_shape[:-1][::-1])
     img = img.convert("RGB")
 
     return img, img_size
 
 
 def prepare_training(model, image, gt_boxes, label_indices):
-    image_arr = np.moveaxis(np.array(image, dtype="float32"), 0, 1)
+    image_arr = np.array(image, dtype="float32")
     image_arr /= 255.0
 
     pos_indices = model.match_boxes(gt_boxes)
@@ -132,7 +132,7 @@ def evaluate(model, dataset, iou_threshold=0.5):
         amount_false_neg += max(0, len(gt_boxes) - iteration_true_pos)  # ... resulting in this max being needed. Could use abs instead to punish this behavior.
         amount_true_pos += iteration_true_pos
 
-    metric_value = amount_true_pos / (amount_true_pos + amount_false_pos + amount_false_neg)
+    metric_value = amount_true_pos / (amount_true_pos + amount_false_pos + amount_false_neg) if any([amount_true_pos, amount_false_pos, amount_false_neg]) else 0
 
     return metric_value
 
