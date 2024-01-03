@@ -33,8 +33,8 @@ def preprocess_image(path):
 
 
 def prepare_training(model, image, gt_boxes, label_indices):
-    image_arr = np.array(image, dtype="float32")
-    image_arr /= 255.0
+    image_arr = np.array(image)
+    processed_image = model.preprocess_function(image_arr)
 
     pos_indices = model.match_boxes(gt_boxes)
 
@@ -52,7 +52,7 @@ def prepare_training(model, image, gt_boxes, label_indices):
         mask[np.array(pos_indices)[:, 0]] = False
     confidences[mask, 0] = 1
 
-    return image_arr, locations, confidences
+    return processed_image, locations, confidences
 
 
 def prepare_dataset(model, path, training_ratio=0):

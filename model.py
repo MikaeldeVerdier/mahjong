@@ -6,6 +6,7 @@ import coremltools as ct
 
 from keras.utils import plot_model
 from keras.applications import VGG16
+from keras.applications.vgg16 import preprocess_input
 # from keras.callbacks import TensorBoard
 from keras.layers import Activation, Concatenate, Conv2D, Reshape
 from keras.losses import CategoricalCrossentropy, Huber
@@ -31,6 +32,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		# for layer in base_network.layers[:frozen_layer_amount]:
 		# 	layer.trainable = False
 		base_network.trainable = False
+		self.preprocess_function = preprocess_input
 
 		# inp = Input(shape=self.inp_shape)
 
@@ -260,7 +262,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 	def create_base_model(self):
 		mlmodel = ct.convert(
 			self.model,
-			inputs=[ct.ImageType("input_1", shape=(1,) + self.input_shape[-2::-1] + self.input_shape[-1:])]
+			inputs=[ct.ImageType("input_1", shape=(1,) + self.input_shape)]
 		)
 
 		spec = mlmodel.get_spec()
