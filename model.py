@@ -8,7 +8,7 @@ from keras.utils import plot_model
 from keras.applications import VGG16
 from keras.applications.vgg16 import preprocess_input
 # from keras.callbacks import TensorBoard
-from keras.layers import Activation, Concatenate, Conv2D, Reshape
+from keras.layers import Input, Activation, Concatenate, Conv2D, Reshape
 from keras.losses import CategoricalCrossentropy, Huber
 # from keras.metrics import MeanSquaredError, Accuracy
 from keras.models import Model, load_model
@@ -23,6 +23,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		self.class_amount = class_amount
 		self.hard_neg_ratio = hard_neg_ratio
 
+		self.preprocess_function = preprocess_input
+
 		if load is not False:
 			self.load_model(load)
 			return
@@ -32,7 +34,6 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		# for layer in base_network.layers[:frozen_layer_amount]:
 		# 	layer.trainable = False
 		base_network.trainable = False
-		self.preprocess_function = preprocess_input
 
 		# inp = Input(shape=self.inp_shape)
 
@@ -259,20 +260,52 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		plt.savefig(f"{config.SAVE_FOLDER_PATH}/metrics.png", dpi=200)
 
-	def create_base_model(self):
+	def create_decoded_tfmodel(self):
+		inp = Input(shape=self.input_shape, name="image")
+		x = preprocess_input(inp)
+
+		class_predictions, location_predictions = self.model(x)
+
+		confs = class_predictions[:, :, :-1]
+		wh = location_predictions[:, :, 2:]
+		xy = location_predictions[:, :, :2]
+
+		defaults_xy, defaults_wh = zip(*[(default_box.size_coords[:2], default_box.size_coords[2:]) for default_box in self.default_boxes])
+
+		defaults_xy = np.expand_dims(defaults_xy, axis=0)
+		defaults_wh = np.expand_dims(defaults_wh, axis=0)
+
+		tensor_def_xy = tf.constant(defaults_xy, dtype="float32")
+		tensor_def_wh = tf.constant(defaults_wh, dtype="float32")
+
+		decoded_xy = xy * tensor_def_wh + tensor_def_xy
+		decoded_wh = tf.exp(wh) * tensor_def_wh
+
+		locs = Concatenate(axis=-1)([decoded_xy] + [decoded_wh])
+
+		decoded_model = Model(inputs=[inp], outputs=[confs, locs])
+		decoded_model.compile()
+		
+		self.model.summary()
+
+		return decoded_model
+
+	def create_base_model(self):  # A bit weird to have partial generality. Should really probably be a staticmethod (same for all of these)
+		decoded_model = self.create_decoded_tfmodel()
+
 		mlmodel = ct.convert(
-			self.model,
-			inputs=[ct.ImageType("input_1", shape=(1,) + self.input_shape)]
+			decoded_model,
+			inputs=[ct.ImageType("image", shape=(1,) + self.input_shape)]
 		)
 
 		spec = mlmodel.get_spec()
 
-		new_names = ["confidences", "locations"]
-		output_sizes = [self.class_amount + 1, 4]
+		new_names = ["raw_confidence", "raw_coordinates"]
+		output_sizes = [self.class_amount, 4]
 		for i in range(2):
 			old_name = spec.description.output[i].name
 			ct.utils.rename_feature(spec, old_name, new_names[i])
-			spec.description.output[i].type.multiArrayType.shape.extend([1, len(self.default_boxes), output_sizes[i]])
+			spec.description.output[i].type.multiArrayType.shape.extend([len(self.default_boxes), output_sizes[i]])
 			spec.description.output[i].type.multiArrayType.dataType = ct.proto.FeatureTypes_pb2.ArrayFeatureType.DOUBLE
 
 		mlmodel = ct.models.MLModel(spec)
@@ -330,6 +363,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		return decoder_model
 	"""
 
+	""" # No longer needed after creating decoding in tensorflow (create_decoder_tfmodel)
 	def build_decoder(self):
 		input_features = [
 			("confidences", ct.models.datatypes.Array(1, len(self.default_boxes), self.class_amount + 1)),
@@ -381,6 +415,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		decoder_model = ct.models.MLModel(builder.spec)
 
 		return decoder_model
+	"""
 
 	def create_nms_model(self, previous_model, iou_threshold, conf_threshold, labels):
 		nms_spec = ct.proto.Model_pb2.Model()
@@ -397,7 +432,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		nms_spec.description.output[0].name = "confidence"
 		nms_spec.description.output[1].name = "coordinates"
-		
+
 		nms_output_sizes = [self.class_amount, 4]
 		for i in range(2):
 			ma_type = nms_spec.description.output[i].type.multiArrayType
@@ -428,7 +463,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 	
 	def create_pipeline(self, models):
 		input_features = [
-			("input_1", ct.models.datatypes.Array(0)),  # Doesn't matter, is changed later anyway
+			("image", ct.models.datatypes.Array(0)),  # Doesn't matter, is changed later anyway
 			("iouThreshold", ct.models.datatypes.Double()),
 			("confidenceThreshold", ct.models.datatypes.Double())
 		]
@@ -461,11 +496,12 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		self.iou_threshold = iou_threshold
 		self.conf_threshold = conf_threshold
 
+		# mlmodel = self.create_base_model()
+		# decoder_model = self.build_decoder()
 		mlmodel = self.create_base_model()
-		decoder_model = self.build_decoder()
-		nms_model = self.create_nms_model(decoder_model, iou_threshold, conf_threshold, labels)
+		nms_model = self.create_nms_model(mlmodel, iou_threshold, conf_threshold, labels)
 		
-		self.mlmodel = self.create_pipeline([mlmodel, decoder_model, nms_model])
+		self.mlmodel = self.create_pipeline([mlmodel, nms_model])
 	
 	def save_mlmodel(self, metadata_changes={}, precision_nbits=16):
 		pipeline_spec = self.mlmodel.get_spec()
