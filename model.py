@@ -14,8 +14,8 @@ from keras.losses import CategoricalCrossentropy, Huber
 from keras.models import Model, load_model
 from keras.optimizers import SGD
 
+import box_utils
 import config
-from default_box import default_boxes, CellBox
 
 class SSD_Model:  # Consider instead saving weights, and using a seperate training and inference model (to decode in model)
 	def __init__(self, input_shape, class_amount, lr=config.LEARNING_RATE, momentum=config.MOMENTUM, hard_neg_ratio=config.HARD_NEGATIVE_RATIO, load=False):
@@ -67,15 +67,15 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		outputs.append(x)
 		#
 
-		self.default_boxes = []
+		self.default_boxes = np.empty(shape=(0, 4))
 		im_aspect_ratio = input_shape[0] / input_shape[1]
 		aspect_ratios = [ar / im_aspect_ratio for ar in [0.67, 1, 1.33]]
 
 		head_outputs = [[], []]
 		for k, output in enumerate(outputs, 1):
-			defaults = default_boxes(k, len(outputs), aspect_ratios, output.shape[1:3])
-			for default in defaults:
-				self.default_boxes += default.cells
+			defaults = box_utils.default_boxes(k, len(outputs), aspect_ratios, output.shape[1:3])
+			# defaults = default_boxes(k, len(outputs), aspect_ratios, output.shape[1:3])
+			self.default_boxes = np.concatenate([self.default_boxes, defaults.reshape(-1, 4)])
 
 			location_pred = Conv2D(filters=len(defaults) * 4, kernel_size=(3, 3), padding="same")(output)
 			location_pred = Reshape((-1, 4))(location_pred)
@@ -174,10 +174,11 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		return selected_classes, selected_boxes, selected_scores
 	"""
 
+	"""
 	def match_boxes(self, gt_boxes, threshold=0.5):  # Consider moving this to default_box.py
 		if not len(gt_boxes):
 			return []
-		
+
 		matches = []
 		for i, gt_box in enumerate(gt_boxes):
 			gt_ious = [box.calculate_iou(gt_box) for box in self.default_boxes]
@@ -191,6 +192,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 				matches.append((i, np.argmax(def_ious)))
 
 		return matches
+	"""
 	
 	"""
 	def hard_negative_mining(self, x, y_true_conf, mask):
@@ -231,8 +233,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 			f.write(json.dumps(self.metrics))
 
 		with open(f"{config.SAVE_FOLDER_PATH}/default_boxes.json", "w") as f:
-			boxes = [box.abs_coords for box in self.default_boxes]
-			f.write(json.dumps(boxes))
+			f.write(json.dumps(self.default_boxes.tolist()))
 
 	def load_model(self, name):
 		self.model = load_model(f"{config.SAVE_FOLDER_PATH}/{name}", custom_objects={"huber_with_mask": self.huber_with_mask, "categorical_crossentropy_with_mask": self.categorical_crossentropy_with_mask})
@@ -242,7 +243,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		with open(f"{config.SAVE_FOLDER_PATH}/default_boxes.json", "r") as f:
 			reading = json.loads(f.read())
-			self.default_boxes = [CellBox(abs_coords=coords) for coords in reading]
+			self.default_boxes = np.array(reading)
 
 	def plot_model(self):
 		try:
@@ -270,7 +271,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		wh = location_predictions[:, :, 2:]
 		xy = location_predictions[:, :, :2]
 
-		defaults_xy, defaults_wh = zip(*[(default_box.size_coords[:2], default_box.size_coords[2:]) for default_box in self.default_boxes])
+		defaults_xy, defaults_wh = self.default_boxes[:, :2], self.default_boxes[:, 2:]
 
 		defaults_xy = np.expand_dims(defaults_xy, axis=0)
 		defaults_wh = np.expand_dims(defaults_wh, axis=0)
@@ -281,22 +282,18 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		decoded_xy = xy * tensor_def_wh + tensor_def_xy
 		decoded_wh = tf.exp(wh) * tensor_def_wh
 
-		locs = Concatenate(axis=-1)([decoded_xy] + [decoded_wh])
+		locs = Concatenate(axis=-1)([decoded_xy, decoded_wh])
+		# locs = Concatenate(axis=-1)([decoded_xy + decoded_wh])
 
 		decoded_model = Model(inputs=[inp], outputs=[confs, locs])
 		decoded_model.compile()
-		
-		self.model.summary()
 
 		return decoded_model
 
 	def create_base_model(self):  # A bit weird to have partial generality. Should really probably be a staticmethod (same for all of these)
 		decoded_model = self.create_decoded_tfmodel()
 
-		mlmodel = ct.convert(
-			decoded_model,
-			inputs=[ct.ImageType("image", shape=(1,) + self.input_shape)]
-		)
+		mlmodel = ct.convert(decoded_model, inputs=[ct.ImageType("image", shape=(1,) + self.input_shape)])
 
 		spec = mlmodel.get_spec()
 

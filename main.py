@@ -3,10 +3,10 @@ import random
 import numpy as np
 from PIL import Image
 
+import box_utils
 import files
 import config
 from model import SSD_Model
-from default_box import CellBox
 
 labels = [
     "Bamboo 1", "Bamboo 2", "Bamboo 3", "Bamboo 4", "Bamboo 5", "Bamboo 6", "Bamboo 7", "Bamboo 8", "Bamboo 9",
@@ -36,21 +36,18 @@ def prepare_training(model, image, gt_boxes, label_indices):
     image_arr = np.array(image)
     processed_image = model.preprocess_function(image_arr)
 
-    pos_indices = model.match_boxes(gt_boxes)
+    matches = box_utils.match(gt_boxes, model.default_boxes)
 
     locations = np.zeros((len(model.default_boxes), 4))
     confidences = np.zeros((len(model.default_boxes), label_amount + 1), dtype="int32")
 
-    for pos_index, gt_match in set(pos_indices):
-        offset = gt_boxes[gt_match].calculate_offset(model.default_boxes[pos_index])
+    for gt_index, default_index in enumerate(matches):
+        offset = box_utils.calculate_offset(gt_boxes[gt_index], model.default_boxes[default_index])
 
-        locations[pos_index] = offset
-        confidences[pos_index, label_indices[gt_match] + 1] = 1
-
-    mask = np.ones(len(confidences), dtype="bool")
-    if len(gt_boxes):
-        mask[np.array(pos_indices)[:, 0]] = False
-    confidences[mask, 0] = 1
+        locations[default_index] = offset
+        confidences[default_index, label_indices[gt_index] + 1] = 1
+    
+    confidences[np.sum(confidences, axis=-1) == 0, 0] = 1
 
     return processed_image, locations, confidences
 
@@ -64,14 +61,14 @@ def prepare_dataset(model, path, training_ratio=0):
         img_path = os.path.join(path, annotation["image"])
         image, image_size = preprocess_image(img_path)
 
-        locations = []
+        locations = np.empty(shape=(0, 4))
         confidences = []
         for label in annotation["annotations"]:
-            box = CellBox(size_coords=label["coordinates"].values())
-            scaled_box = box.scale_box((1 / image_size[0], 1 / image_size[1]))
+            box = np.array(list(label["coordinates"].values()))
+            scaled_box = box_utils.scale_box(box, (1 / image_size[0], 1 / image_size[1]))
             # scaled_coords = [val / image_size[key in ["y", "height"]] for key, val in label["coordinates"].items()]
             # scaled_box2 = CellBox(size_coords=scaled_coords)
-            locations.append(scaled_box)
+            locations = np.concatenate([locations, scaled_box[None]])
 
             confidences.append(labels.index(label["label"]))
 
@@ -99,11 +96,11 @@ def retrain(model, dataset, iteration_amount, epochs):
 
 
 def inference(model, image):  # PIL Image
-    locations, confidences = model.mlmodel.predict({"input_1": image}).values()
+    locations, confidences = model.mlmodel.predict({"image": image}).values()
     labeled_labels = np.array(labels)[np.argmax(confidences, axis=-1)]
-    scaled_boxes = [CellBox(size_coords=box).scale_box(input_shape[:-1]) for box in locations]
+    # scaled_boxes = box_utils.scale_box(locations, input_shape[:-1])
 
-    label_infos = list(zip(labeled_labels, scaled_boxes, confidences))
+    label_infos = [labeled_labels, locations, confidences]
 
     return label_infos
 
@@ -114,23 +111,17 @@ def evaluate(model, dataset, iou_threshold=0.5):
     amount_false_neg = 0
 
     for image, gt_boxes, gt_labels in dataset:
-        iteration_true_pos = 0
+        labels, boxes, _ = inference(model, image)
 
-        gt_boxes = [gt_box.scale_box(input_shape[:-1]) for gt_box in gt_boxes]
+        ious = box_utils.calculate_iou(gt_boxes, boxes)
 
-        label_infos = inference(model, image)
-
-        for pred_label, box, _ in label_infos:
-            # for gt_box in gt_boxes:
-            #     gt_box.plot_iou(box, image, name=str(hash(gt_box) + hash(box)))
-
-            if any(box.calculate_iou(gt_box) >= iou_threshold and labels[gt_label] == pred_label for gt_label, gt_box in zip(gt_labels, gt_boxes)):
-                iteration_true_pos += 1  # Can be right twice for same gt...
+        amount_false_pos += len(labels)
+        for iou, gt_label in zip(ious, gt_labels):
+            if np.count_nonzero(labels[iou > iou_threshold] == labels[gt_label]):
+                amount_true_pos += 1
+                amount_false_pos -= 1
             else:
-                amount_false_pos += 1
-        
-        amount_false_neg += max(0, len(gt_boxes) - iteration_true_pos)  # ... resulting in this max being needed. Could use abs instead to punish this behavior.
-        amount_true_pos += iteration_true_pos
+                amount_false_neg += 1
 
     metric_value = amount_true_pos / (amount_true_pos + amount_false_pos + amount_false_neg) if any([amount_true_pos, amount_false_pos, amount_false_neg]) else 0
 
