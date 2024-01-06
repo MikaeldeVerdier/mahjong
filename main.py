@@ -97,10 +97,10 @@ def retrain(model, dataset, iteration_amount, epochs):
 
 def inference(model, image):  # PIL Image
     locations, confidences = model.mlmodel.predict({"image": image}).values()
-    labeled_labels = np.array(labels)[np.argmax(confidences, axis=-1)]
+    predicted_labels = np.array(labels)[np.argmax(confidences, axis=-1)]
     # scaled_boxes = box_utils.scale_box(locations, input_shape[:-1])
 
-    label_infos = [labeled_labels, locations, confidences]
+    label_infos = [predicted_labels, locations, confidences]
 
     return label_infos
 
@@ -111,13 +111,13 @@ def evaluate(model, dataset, iou_threshold=0.5):
     amount_false_neg = 0
 
     for image, gt_boxes, gt_labels in dataset:
-        labels, boxes, _ = inference(model, image)
+        predicted_labels, predicted_boxes, _ = inference(model, image)
 
-        ious = box_utils.calculate_iou(gt_boxes, boxes)
+        ious = box_utils.calculate_iou(gt_boxes, predicted_boxes)
 
-        amount_false_pos += len(labels)
+        amount_false_pos += len(predicted_labels)
         for iou, gt_label in zip(ious, gt_labels):
-            if np.count_nonzero(labels[iou > iou_threshold] == labels[gt_label]):
+            if np.count_nonzero(predicted_labels[iou > iou_threshold] == labels[gt_label]):
                 amount_true_pos += 1
                 amount_false_pos -= 1
             else:

@@ -138,7 +138,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		ks = tf.expand_dims(tf.reduce_sum(tf.cast(pos_mask, tf.int32), axis=-1) * tf.constant(self.hard_neg_ratio), axis=-1)
 
 		indices = tf.range(tf.shape(sorted_neg_losses)[-1])
-		indices_expanded = tf.expand_dims(indices, axis=0)
+		indices_expanded = tf.expand_dims(indices, axis=0)  # indices[None] ?
 		mask_tensor = tf.where(indices_expanded <= ks, tf.ones_like(indices_expanded, dtype=tf.float32), tf.zeros_like(indices_expanded, dtype=tf.float32))
 		top_neg_losses = mask_tensor * sorted_neg_losses
 
@@ -224,7 +224,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		for metric in fit.history:
 			if metric in self.metrics:
-				self.metrics[metric] += fit.history[metric]
+				self.metrics[metric] += fit.history[metric]  # Could be changed to list comprehension
 
 	def save_model(self, name):
 		self.model.save(f"{config.SAVE_FOLDER_PATH}/{name}")
@@ -267,14 +267,14 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		class_predictions, location_predictions = self.model(x)
 
-		confs = class_predictions[:, :, :-1]
+		confs = class_predictions[:, :, 1:]
 		wh = location_predictions[:, :, 2:]
 		xy = location_predictions[:, :, :2]
 
 		defaults_xy, defaults_wh = self.default_boxes[:, :2], self.default_boxes[:, 2:]
 
-		defaults_xy = np.expand_dims(defaults_xy, axis=0)
-		defaults_wh = np.expand_dims(defaults_wh, axis=0)
+		defaults_xy = defaults_xy[None]
+		defaults_wh = defaults_wh[None]
 
 		tensor_def_xy = tf.constant(defaults_xy, dtype="float32")
 		tensor_def_wh = tf.constant(defaults_wh, dtype="float32")
