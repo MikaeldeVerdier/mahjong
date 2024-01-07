@@ -1,6 +1,7 @@
 import os
 import random
 import numpy as np
+import albumentations as A
 from PIL import Image
 
 import box_utils
@@ -32,24 +33,59 @@ def preprocess_image(path):
     return img, img_size
 
 
+def data_augment(image, boxes, labels):
+    transform = A.Compose([
+        A.OneOf([
+            A.Blur(p=0.5),
+            A.MotionBlur(p=0.5),
+            A.PixelDropout(p=0.5)
+        ]),
+        A.OneOf([
+            A.Affine(p=0.5),
+            A.Perspective(p=0.5)
+        ]),
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.RandomBrightnessContrast(p=0.5),
+        A.HueSaturationValue(p=0.5),
+        A.BBoxSafeRandomCrop(p=0.5)
+    ], bbox_params=A.BboxParams(format="yolo", min_visibility=0.4, label_fields=["class_labels"]))
+
+    result = transform(image=image, bboxes=boxes, class_labels=labels)
+
+    img = result["image"]
+    bboxes = np.array(result["bboxes"])
+    labels = result["class_labels"]
+
+    box_utils.plot_ious(bboxes, np.empty(shape=(0, 4)), Image.fromarray(img))
+
+    return img, bboxes, labels
+
+
 def prepare_training(model, image, gt_boxes, label_indices):
     image_arr = np.array(image)
-    processed_image = model.preprocess_function(image_arr)
+    data = [[image_arr, gt_boxes, label_indices]] + [data_augment(image_arr, gt_boxes, label_indices) for _ in range(config.AUGMENTATION_AMOUNT)]
 
-    matches = box_utils.match(gt_boxes, model.default_boxes)
+    generated_data = []
+    for image_arr, gt_box, labels in data:
+        processed_image = model.preprocess_function(image_arr)
 
-    locations = np.zeros((len(model.default_boxes), 4))
-    confidences = np.zeros((len(model.default_boxes), label_amount + 1), dtype="int32")
+        matches = box_utils.match(gt_box, model.default_boxes)
 
-    for gt_index, default_index in enumerate(matches):
-        offset = box_utils.calculate_offset(gt_boxes[gt_index], model.default_boxes[default_index])
+        locations = np.zeros((len(model.default_boxes), 4))
+        confidences = np.zeros((len(model.default_boxes), label_amount + 1), dtype="int32")
 
-        locations[default_index] = offset
-        confidences[default_index, label_indices[gt_index] + 1] = 1
-    
-    confidences[np.sum(confidences, axis=-1) == 0, 0] = 1
+        for gt_index, default_index in enumerate(matches):
+            offset = box_utils.calculate_offset(gt_box[gt_index], model.default_boxes[default_index])
 
-    return processed_image, locations, confidences
+            locations[default_index] = offset
+            confidences[default_index, labels[gt_index] + 1] = 1
+
+        confidences[np.sum(confidences, axis=-1) == 0, 0] = 1
+
+        generated_data.append([processed_image, locations, confidences])
+
+    return generated_data
 
 
 def prepare_dataset(model, path, training_ratio=0):
@@ -72,10 +108,7 @@ def prepare_dataset(model, path, training_ratio=0):
 
             confidences.append(labels.index(label["label"]))
 
-        if i < amount_training:
-            image, locations, confidences = prepare_training(model, image, locations, confidences)
-
-        dataset.append([image, locations, confidences])
+        dataset += prepare_training(model, image, locations, confidences) if i < amount_training else [[image, locations, confidences]]
 
     return dataset, amount_training
 
