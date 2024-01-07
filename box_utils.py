@@ -94,7 +94,7 @@ def match(boxes1, boxes2, threshold=0.5):
 
 
 def plot_ious(gts, boxes, img, name="boxes.png", scale_coords=True):  # Should scale_coords even be an option? I never use scaled coords
-	_, ax = plt.subplots()
+	_, ax = plt.subplots()  # Would be reasonable to write the label too, at least for the preds.
 
 	plt.imshow(img)
 	w, h = img.size
@@ -116,7 +116,7 @@ def plot_ious(gts, boxes, img, name="boxes.png", scale_coords=True):  # Should s
 		ax.add_artist(Rectangle((coord[0], coord[1]), box[2], box[3], linewidth=1, edgecolor="r", facecolor="none"))
 
 		left, top = box[0], coord[1]
-		plt.text(left, top + 2, f"IOU: {np.max(iou):.5f}", horizontalalignment="center", fontdict=font)  # Doesn't say which gt the iou is for but should be fine
+		plt.text(left, top - 2, f"IOU: {np.max(iou):.5f}", horizontalalignment="center", fontdict=font)  # Doesn't say which gt the iou is for but should be fine
 
 	plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}")
 	plt.close()

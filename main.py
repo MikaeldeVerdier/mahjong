@@ -99,8 +99,9 @@ def inference(model, image):  # PIL Image
     locations, confidences = model.mlmodel.predict({"image": image}).values()
     predicted_labels = np.array(labels)[np.argmax(confidences, axis=-1)]
     # scaled_boxes = box_utils.scale_box(locations, input_shape[:-1])
+    label_confs = confidences[np.arange(len(confidences)), np.argmax(confidences, axis=-1)]
 
-    label_infos = [predicted_labels, locations, confidences]
+    label_infos = [predicted_labels, locations, label_confs]
 
     return label_infos
 
