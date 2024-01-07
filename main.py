@@ -34,6 +34,10 @@ def preprocess_image(path):
 
 
 def data_augment(image, boxes, labels):
+    boxes = box_utils.convert_to_coordinates(boxes)
+    boxes = np.maximum(boxes, 0)
+    boxes = np.minimum(boxes, 1)
+
     transform = A.Compose([
         A.OneOf([
             A.Blur(p=0.5),
@@ -49,7 +53,7 @@ def data_augment(image, boxes, labels):
         A.RandomBrightnessContrast(p=0.5),
         A.HueSaturationValue(p=0.5),
         A.BBoxSafeRandomCrop(p=0.5)
-    ], bbox_params=A.BboxParams(format="yolo", min_visibility=0.4, label_fields=["class_labels"]))
+    ], bbox_params=A.BboxParams(format="albumentations", min_visibility=0.4, label_fields=["class_labels"]))
 
     result = transform(image=image, bboxes=boxes, class_labels=labels)
 
@@ -57,7 +61,8 @@ def data_augment(image, boxes, labels):
     bboxes = np.array(result["bboxes"])
     labels = result["class_labels"]
 
-    box_utils.plot_ious(bboxes, np.empty(shape=(0, 4)), Image.fromarray(img))
+    if bboxes.shape == (0,):
+        bboxes = np.empty((0, 4))
 
     return img, bboxes, labels
 
@@ -89,7 +94,7 @@ def prepare_training(model, image, gt_boxes, label_indices):
 
 
 def prepare_dataset(model, path, training_ratio=0):
-    dataset = []
+    dataset = [[], []]
     annotations = files.load(path)
 
     amount_training = int(len(annotations) * training_ratio)
@@ -108,9 +113,12 @@ def prepare_dataset(model, path, training_ratio=0):
 
             confidences.append(labels.index(label["label"]))
 
-        dataset += prepare_training(model, image, locations, confidences) if i < amount_training else [[image, locations, confidences]]
+        if i < amount_training:
+            dataset[0] += prepare_training(model, image, locations, confidences)
+        else:
+            dataset[1].append([image, locations, confidences])
 
-    return dataset, amount_training
+    return dataset
 
 
 def retrain(model, dataset, iteration_amount, epochs):
@@ -165,9 +173,7 @@ def evaluate(model, dataset, iou_threshold=0.5):
 if __name__ == "__main__":
     model = SSD_Model(input_shape, label_amount)
 
-    dataset, split_index = prepare_dataset(model, "dataset", training_ratio=config.TRAINING_SPLIT)
-    training_dataset = dataset[:split_index]
-    testing_dataset = dataset[split_index:]
+    training_dataset, testing_dataset = prepare_dataset(model, "dataset", training_ratio=config.TRAINING_SPLIT)
 
     retrain(model, training_dataset, config.TRAINING_ITERATIONS, config.EPOCHS)
 
