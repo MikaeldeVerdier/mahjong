@@ -77,7 +77,7 @@ def prepare_training(model, image, gt_boxes, label_indices):
     for _ in range(config.AUGMENTATION_AMOUNT):
         new_data = augment_data(image_arr, gt_boxes, label_indices)
 
-        if not any([new_data == entry[0] for entry in data]):
+        if not any([np.array_equal(new_data[0], entry[0]) for entry in data]):
             data.append(new_data)
     
     # [augment_data(image_arr, gt_boxes, label_indices) for _ in range(config.AUGMENTATION_AMOUNT)]
