@@ -33,43 +33,54 @@ def preprocess_image(path):
     return img, img_size
 
 
-def data_augment(image, boxes, labels):
+def augment_data(image, boxes, labels):
     boxes = box_utils.convert_to_coordinates(boxes)
     boxes = np.maximum(boxes, 0)
-    boxes = np.minimum(boxes, 1)
+    boxes = np.minimum(boxes, 1)  # I don't really like this
 
+    h, w = image.shape[:-1]
     transform = A.Compose([
-        A.OneOf([
-            A.Blur(p=0.5),
-            A.MotionBlur(p=0.5),
-            A.PixelDropout(p=0.5)
-        ]),
-        A.OneOf([
-            A.Affine(p=0.5),
-            A.Perspective(p=0.5)
-        ]),
-        A.HorizontalFlip(p=0.5),
+        # A.OneOf([
+        #     A.Blur(p=0.5),
+        #     A.MotionBlur(p=0.5),
+        #     A.PixelDropout(p=0.5)
+        # ]),
+        # A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.RandomBrightnessContrast(p=0.5),
         A.HueSaturationValue(p=0.5),
-        A.BBoxSafeRandomCrop(p=0.5)
+        A.ISONoise(p=0.5),
+        A.RandomSizedBBoxSafeCrop(h, w, p=0.25),
+        A.OneOf([
+            A.Affine(p=0.25),
+            A.Perspective(p=0.25)
+        ])
     ], bbox_params=A.BboxParams(format="albumentations", min_visibility=0.4, label_fields=["class_labels"]))
 
     result = transform(image=image, bboxes=boxes, class_labels=labels)
 
-    img = result["image"]
-    bboxes = np.array(result["bboxes"])
-    labels = result["class_labels"]
+    transformed_img = result["image"]
+    transformed_boxes = np.array(result["bboxes"])
+    transformed_labels = result["class_labels"]
 
-    if bboxes.shape == (0,):
-        bboxes = np.empty((0, 4))
+    if transformed_boxes.shape == (0,):
+        transformed_boxes = np.empty((0, 4))
 
-    return img, bboxes, labels
+    data = [transformed_img, transformed_boxes, transformed_labels]
+
+    return data
 
 
 def prepare_training(model, image, gt_boxes, label_indices):
     image_arr = np.array(image)
-    data = [[image_arr, gt_boxes, label_indices]] + [data_augment(image_arr, gt_boxes, label_indices) for _ in range(config.AUGMENTATION_AMOUNT)]
+    data = [[image_arr, gt_boxes, label_indices]]
+    for _ in range(config.AUGMENTATION_AMOUNT):
+        new_data = augment_data(image_arr, gt_boxes, label_indices)
+
+        if not any([new_data == entry[0] for entry in data]):
+            data.append(new_data)
+    
+    # [augment_data(image_arr, gt_boxes, label_indices) for _ in range(config.AUGMENTATION_AMOUNT)]
 
     generated_data = []
     for image_arr, gt_box, labels in data:
@@ -77,8 +88,8 @@ def prepare_training(model, image, gt_boxes, label_indices):
 
         matches = box_utils.match(gt_box, model.default_boxes)
 
-        locations = np.zeros((len(model.default_boxes), 4))
-        confidences = np.zeros((len(model.default_boxes), label_amount + 1), dtype="int32")
+        locations = np.zeros((len(model.default_boxes), 4), dtype="float32")
+        confidences = np.zeros((len(model.default_boxes), label_amount + 1), dtype="uint8")
 
         for gt_index, default_index in enumerate(matches):
             offset = box_utils.calculate_offset(gt_box[gt_index], model.default_boxes[default_index])
