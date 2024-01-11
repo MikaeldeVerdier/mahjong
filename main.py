@@ -34,9 +34,9 @@ def preprocess_image(path):
 
 
 def augment_data(image, boxes, labels):
-    boxes = box_utils.convert_to_coordinates(boxes)
-    boxes = np.maximum(boxes, 0)
-    boxes = np.minimum(boxes, 1)  # I don't really like this
+    coords = box_utils.convert_to_coordinates(boxes)
+    coords = np.maximum(coords, 0)
+    coords = np.minimum(coords, 1)  # I don't really like this
 
     h, w = image.shape[:-1]
     transform = A.Compose([
@@ -57,7 +57,7 @@ def augment_data(image, boxes, labels):
         ])
     ], bbox_params=A.BboxParams(format="albumentations", min_visibility=0.4, label_fields=["class_labels"]))
 
-    result = transform(image=image, bboxes=boxes, class_labels=labels)
+    result = transform(image=image, bboxes=coords, class_labels=labels)
 
     transformed_img = result["image"]
     transformed_boxes = np.array(result["bboxes"])
@@ -65,8 +65,9 @@ def augment_data(image, boxes, labels):
 
     if transformed_boxes.shape == (0,):
         transformed_boxes = np.empty((0, 4))
-
-    data = [transformed_img, transformed_boxes, transformed_labels]
+    
+    centroids = box_utils.convert_to_centroids(transformed_boxes)
+    data = [transformed_img, centroids, transformed_labels]
 
     return data
 
