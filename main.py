@@ -38,19 +38,19 @@ def augment_data(image, boxes, labels):
     coords = np.maximum(coords, 0)
     coords = np.minimum(coords, 1)  # I don't really like this
 
-    h, w = image.shape[:-1]
+    # h, w = image.shape[:-1]
     transform = A.Compose([
-        # A.OneOf([
-        #     A.Blur(p=0.5),
-        #     A.MotionBlur(p=0.5),
-        #     A.PixelDropout(p=0.5)
-        # ]),
+        A.OneOf([
+            A.Blur(p=0.25),
+            A.MotionBlur(p=0.25),
+            A.PixelDropout(p=0.25)
+        ]),
         # A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.RandomBrightnessContrast(p=0.5),
         A.HueSaturationValue(p=0.5),
         A.ISONoise(p=0.5),
-        A.RandomSizedBBoxSafeCrop(h, w, p=0.25),
+        # A.RandomSizedBBoxSafeCrop(h, w, p=0.25),
         A.OneOf([
             A.Affine(p=0.25),
             A.Perspective(p=0.25)
@@ -105,9 +105,13 @@ def prepare_training(model, image, gt_boxes, label_indices):
     return generated_data
 
 
-def prepare_dataset(model, path, training_ratio=0):
+def prepare_dataset(model, path, training_ratio=0, used_ratio=1, start_index=0):
     dataset = [[], []]
     annotations = files.load(path)
+
+    starting_index = int(len(annotations) * start_index)
+    amount_used = int(len(annotations) * used_ratio)
+    annotations = annotations[starting_index: starting_index + amount_used]
 
     amount_training = int(len(annotations) * training_ratio)
     for i, annotation in enumerate(annotations):
@@ -143,7 +147,7 @@ def retrain(model, dataset, iteration_amount, epochs):
 
         if not int(i  % (iteration_amount / 10)):
             print(f"Training iteration {i} completed!")
-        
+
         if not int(i % config.SAVING_FREQUENCY):
             model.save_model("model")
 
@@ -185,9 +189,11 @@ def evaluate(model, dataset, iou_threshold=0.5):
 if __name__ == "__main__":
     model = SSD_Model(input_shape, label_amount)
 
-    training_dataset, testing_dataset = prepare_dataset(model, "dataset", training_ratio=config.TRAINING_SPLIT)
+    div = 4
+    for i in range(div):
+        training_dataset, testing_dataset = prepare_dataset(model, "dataset", training_ratio=config.TRAINING_SPLIT, used_ratio=1 / div, start_index=i / div)
 
-    retrain(model, training_dataset, config.TRAINING_ITERATIONS, config.EPOCHS)
+        retrain(model, training_dataset, int(config.TRAINING_ITERATIONS / div), config.EPOCHS)
 
     model.save_model("model")
     model.plot_metrics()
