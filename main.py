@@ -87,7 +87,7 @@ def prepare_training(model, image, gt_boxes, label_indices):
     for image_arr, gt_box, labels in data:
         processed_image = model.preprocess_function(image_arr)
 
-        matches = box_utils.match(gt_box, model.default_boxes)
+        matches = box_utils.match(gt_box, model.default_boxes, threshold=0.6)
 
         locations = np.zeros((len(model.default_boxes), 4), dtype="float32")
         confidences = np.zeros((len(model.default_boxes), label_amount + 1), dtype="uint8")
