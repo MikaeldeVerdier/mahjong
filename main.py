@@ -38,19 +38,19 @@ def augment_data(image, boxes, labels):
     coords = np.maximum(coords, 0)
     coords = np.minimum(coords, 1)  # I don't really like this
 
-    # h, w = image.shape[:-1]
+    h, w = image.shape[:-1]
     transform = A.Compose([
         A.OneOf([
             A.Blur(p=0.25),
             A.MotionBlur(p=0.25),
             A.PixelDropout(p=0.25)
         ]),
-        # A.HorizontalFlip(p=0.5),
+        A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.RandomBrightnessContrast(p=0.5),
         A.HueSaturationValue(p=0.5),
         A.ISONoise(p=0.5),
-        # A.RandomSizedBBoxSafeCrop(h, w, p=0.25),
+        A.RandomSizedBBoxSafeCrop(h, w, p=0.25),
         A.OneOf([
             A.Affine(p=0.25),
             A.Perspective(p=0.25)

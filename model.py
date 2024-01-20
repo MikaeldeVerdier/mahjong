@@ -271,10 +271,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		wh = location_predictions[:, :, 2:]
 		xy = location_predictions[:, :, :2]
 
-		defaults_xy, defaults_wh = self.default_boxes[:, :2], self.default_boxes[:, 2:]
-
-		defaults_xy = defaults_xy[None]
-		defaults_wh = defaults_wh[None]
+		defaults_xy, defaults_wh = self.default_boxes[:, :2][None], self.default_boxes[:, 2:][None]
 
 		tensor_def_xy = tf.constant(defaults_xy, dtype="float32")
 		tensor_def_wh = tf.constant(defaults_wh, dtype="float32")
