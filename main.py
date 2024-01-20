@@ -191,7 +191,7 @@ if __name__ == "__main__":
 
     div = 4
     for i in range(div):
-        training_dataset, testing_dataset = prepare_dataset(model, "dataset", training_ratio=0, used_ratio=1 / div, start_index=i / div)
+        training_dataset, testing_dataset = prepare_dataset(model, "dataset", training_ratio=config.TRAINING_SPLIT, used_ratio=1 / div, start_index=i / div)
 
         retrain(model, training_dataset, int(config.TRAINING_ITERATIONS / div), config.EPOCHS)
 
