@@ -6,20 +6,20 @@ import config
 
 # All functions asume centroids for bounding boxes (except convert_to_centroids)
 
-def default_boxes(k, m, aspect_ratios, f, s=[0.1, 0.8]):
+def default_boxes(k, m, aspect_ratios, f, s=[0.1, 0.5], im_aspect_ratio=1):
 	def s(k, m, s_min=s[0], s_max=s[1]):
 		return s_min + (s_max - s_min) / (m - 1) * (k - 1)
 
 	scale_i = s(k, m)
 	extra_box_scale = (scale_i * s(k + 1, m)) ** 0.5
 
-	def create_box(scale, aspect_ratio, f):
+	def create_boxes(scale, aspect_ratio, f):
 		w = scale * np.sqrt(aspect_ratio)
 		h = scale / np.sqrt(aspect_ratio)
 
 		return [[(i + 0.5) / f[0], (j + 0.5) / f[1], w, h] for i in range(f[0]) for j in range(f[1])]
 
-	anchor_boxes = np.array([create_box(scale_i, ar, f) for ar in aspect_ratios] + [create_box(extra_box_scale, 1, f)])
+	anchor_boxes = np.array([create_boxes(scale_i, ar, f) for ar in aspect_ratios] + [create_boxes(extra_box_scale, 1 * im_aspect_ratio, f)])
 
 	return anchor_boxes
 

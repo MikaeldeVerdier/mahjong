@@ -38,19 +38,19 @@ def augment_data(image, boxes, labels):
     coords = np.maximum(coords, 0)
     coords = np.minimum(coords, 1)  # I don't really like this
 
-    h, w = image.shape[:-1]
+    # h, w = image.shape[:-1]
     transform = A.Compose([
         A.OneOf([
             A.Blur(p=0.25),
             A.MotionBlur(p=0.25),
             A.PixelDropout(p=0.25)
         ]),
-        A.HorizontalFlip(p=0.5),
+        # A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.RandomBrightnessContrast(p=0.5),
         A.HueSaturationValue(p=0.5),
         A.ISONoise(p=0.5),
-        A.RandomSizedBBoxSafeCrop(h, w, p=0.25),
+        # A.RandomSizedBBoxSafeCrop(h, w, p=0.25),
         A.OneOf([
             A.Affine(p=0.25),
             A.Perspective(p=0.25)
@@ -191,7 +191,7 @@ if __name__ == "__main__":
 
     div = 4
     for i in range(div):
-        training_dataset, testing_dataset = prepare_dataset(model, "dataset", training_ratio=config.TRAINING_SPLIT, used_ratio=1 / div, start_index=i / div)
+        training_dataset, testing_dataset = prepare_dataset(model, "dataset", training_ratio=0, used_ratio=1 / div, start_index=i / div)
 
         retrain(model, training_dataset, int(config.TRAINING_ITERATIONS / div), config.EPOCHS)
 
