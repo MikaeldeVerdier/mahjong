@@ -93,8 +93,13 @@ def match(boxes1, boxes2, threshold=0.5):
 	return matches
 
 
-def plot_ious(gts, boxes, img, name="boxes.png", scale_coords=True):  # Should scale_coords even be an option? I never use scaled coords
-	_, ax = plt.subplots()  # Would be reasonable to write the label too, at least for the preds.
+def plot_ious(gts, boxes, img, labels=None, confidences=None, name="boxes.png", scale_coords=True):  # Should scale_coords even be an option? I never use scaled coords
+	if labels is None:
+		labels = [""] * len(boxes)
+	if confidences is None:
+		confidences = [""] * len(boxes)
+
+	_, ax = plt.subplots()
 
 	plt.imshow(img)
 	w, h = img.size
@@ -108,17 +113,21 @@ def plot_ious(gts, boxes, img, name="boxes.png", scale_coords=True):  # Should s
 	gt_coords = convert_to_coordinates(gts)
 	coords = convert_to_coordinates(boxes)
 
-	font = {"color": "green"}
+	iou_font = {"color": "green", "size": 5}
+	label_font = {"color": "black", "size": 5}
 	for gt, gt_coord in zip(gts, gt_coords):
 		ax.add_artist(Rectangle((gt_coord[0], gt_coord[1]), gt[2], gt[3], linewidth=1, edgecolor="g", facecolor="none"))
 
-	for box, coord, iou in zip(boxes, coords, np.transpose(ious)):
+	for box, coord, iou, label, confidence in zip(boxes, coords, np.transpose(ious), labels, confidences):
 		ax.add_artist(Rectangle((coord[0], coord[1]), box[2], box[3], linewidth=1, edgecolor="r", facecolor="none"))
 
 		left, top = box[0], coord[1]
-		plt.text(left, top - 2, f"IOU: {np.max(iou):.5f}", horizontalalignment="center", fontdict=font)  # Doesn't say which gt the iou is for but should be fine
+		plt.text(left, top - 5, f"IOU: {np.max(iou):.3f}", horizontalalignment="center", fontdict=iou_font)  # Doesn't say which gt the iou is for but should be fine
 
-	plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}")
+		bottom = coord[3]
+		plt.text(left, bottom + 10, f"{label} ({confidence:.3f})", horizontalalignment="center", fontdict=label_font)
+
+	plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}", dpi=300)
 	plt.close()
 
 

@@ -72,7 +72,7 @@ def augment_data(image, boxes, labels):
     return data
 
 
-def prepare_training(model, image, gt_boxes, label_indices):
+def prepare_training(image, default_boxes, preprocess_function, gt_boxes, label_indices):
     image_arr = np.array(image)
     data = [[image_arr, gt_boxes, label_indices]]
     for _ in range(config.AUGMENTATION_AMOUNT):
@@ -85,15 +85,15 @@ def prepare_training(model, image, gt_boxes, label_indices):
 
     generated_data = []
     for image_arr, gt_box, labels in data:
-        processed_image = model.preprocess_function(image_arr)
+        processed_image = preprocess_function(image_arr)
 
-        matches = box_utils.match(gt_box, model.default_boxes, threshold=0.6)
+        matches = box_utils.match(gt_box, default_boxes, threshold=0.6)
 
-        locations = np.zeros((len(model.default_boxes), 4), dtype="float32")
-        confidences = np.zeros((len(model.default_boxes), label_amount + 1), dtype="uint8")
+        locations = np.zeros((len(default_boxes), 4), dtype="float32")
+        confidences = np.zeros((len(default_boxes), label_amount + 1), dtype="uint8")
 
         for gt_index, default_index in enumerate(matches):
-            offset = box_utils.calculate_offset(gt_box[gt_index], model.default_boxes[default_index])
+            offset = box_utils.calculate_offset(gt_box[gt_index], default_boxes[default_index])
 
             locations[default_index] = offset
             confidences[default_index, labels[gt_index] + 1] = 1
@@ -105,7 +105,7 @@ def prepare_training(model, image, gt_boxes, label_indices):
     return generated_data
 
 
-def prepare_dataset(model, path, training_ratio=0, used_ratio=1, start_index=0):
+def prepare_dataset(path, default_boxes=None, preprocess_function=None, training_ratio=0, used_ratio=1, start_index=0):
     dataset = [[], []]
     annotations = files.load(path)
 
@@ -130,7 +130,7 @@ def prepare_dataset(model, path, training_ratio=0, used_ratio=1, start_index=0):
             confidences.append(labels.index(label["label"]))
 
         if i < amount_training:
-            dataset[0] += prepare_training(model, image, locations, confidences)
+            dataset[0] += prepare_training(image, default_boxes, preprocess_function, locations, confidences)
         else:
             dataset[1].append([image, locations, confidences])
 
@@ -152,8 +152,8 @@ def retrain(model, dataset, iteration_amount, epochs):
             model.save_model("model")
 
 
-def inference(model, image):  # PIL Image
-    locations, confidences = model.mlmodel.predict({"image": image}).values()
+def inference(mlmodel, image):  # PIL Image
+    locations, confidences = mlmodel.predict({"image": image}).values()
     predicted_labels = np.array(labels)[np.argmax(confidences, axis=-1)]
     # scaled_boxes = box_utils.scale_box(locations, input_shape[:-1])
     label_confs = confidences[np.arange(len(confidences)), np.argmax(confidences, axis=-1)]
@@ -163,13 +163,15 @@ def inference(model, image):  # PIL Image
     return label_infos
 
 
-def evaluate(model, dataset, iou_threshold=0.5):
+def evaluate(mlmodel, dataset, iou_threshold=0.5):
     amount_true_pos = 0
     amount_false_pos = 0
     amount_false_neg = 0
 
     for image, gt_boxes, gt_labels in dataset:
-        predicted_labels, predicted_boxes, _ = inference(model, image)
+        predicted_labels, predicted_boxes, predicted_confidences = inference(mlmodel, image)
+
+        # box_utils.plot_ious(gt_boxes, predicted_boxes, image, labels=predicted_labels, confidences=predicted_confidences)
 
         ious = box_utils.calculate_iou(gt_boxes, predicted_boxes)
 
@@ -191,7 +193,7 @@ if __name__ == "__main__":
 
     div = 4
     for i in range(div):
-        training_dataset, testing_dataset = prepare_dataset(model, "dataset", training_ratio=config.TRAINING_SPLIT, used_ratio=1 / div, start_index=i / div)
+        training_dataset, testing_dataset = prepare_dataset("dataset", default_boxes=model.default_boxes, preprocess_function=model.preprocess_function, training_ratio=config.TRAINING_SPLIT, used_ratio=1 / div, start_index=i / div)
 
         retrain(model, training_dataset, int(config.TRAINING_ITERATIONS / div), config.EPOCHS)
 
@@ -200,7 +202,7 @@ if __name__ == "__main__":
 
     model.convert_to_mlmodel(labels)
 
-    testing_score = evaluate(model, testing_dataset)
+    testing_score = evaluate(model.mlmodel, testing_dataset)
     print(f"The model got a testing score of {testing_score}")
 
     metadata_changes = {
