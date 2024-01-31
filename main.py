@@ -84,8 +84,8 @@ def prepare_training(image, default_boxes, preprocess_function, gt_boxes, label_
     # [augment_data(image_arr, gt_boxes, label_indices) for _ in range(config.AUGMENTATION_AMOUNT)]
 
     generated_data = []
-    for image_arr, gt_box, labels in data:
-        processed_image = preprocess_function(image_arr)
+    for augmented_image_arr, gt_box, labels in data:
+        processed_image = preprocess_function(augmented_image_arr)
 
         matches = box_utils.match(gt_box, default_boxes, threshold=0.6)
 

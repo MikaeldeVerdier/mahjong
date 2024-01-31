@@ -125,7 +125,8 @@ def plot_ious(gts, boxes, img, labels=None, confidences=None, name="boxes.png", 
 		plt.text(left, top - 5, f"IOU: {np.max(iou):.3f}", horizontalalignment="center", fontdict=iou_font)  # Doesn't say which gt the iou is for but should be fine
 
 		bottom = coord[3]
-		plt.text(left, bottom + 10, f"{label} ({confidence:.3f})", horizontalalignment="center", fontdict=label_font)
+		desc = "" if label is None else f"{label} ({confidence:.3f})" if confidence else f"{label}"
+		plt.text(left, bottom + 10, desc, horizontalalignment="center", fontdict=label_font)
 
 	plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}", dpi=300)
 	plt.close()
