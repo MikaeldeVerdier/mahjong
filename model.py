@@ -30,6 +30,9 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 			return
 
 		base_network = VGG16(include_top=False, weights="imagenet", input_shape=input_shape)
+		base_network.layers[-1].pool_size = (3, 3)
+		base_network.layers[-1].strides = (1, 1)
+
 		# frozen_layer_amount = 5
 		# for layer in base_network.layers[:frozen_layer_amount]:
 		# 	layer.trainable = False
