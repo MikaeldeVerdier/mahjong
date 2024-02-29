@@ -38,23 +38,23 @@ def augment_data(image, boxes, labels):
     coords = np.maximum(coords, 0)
     coords = np.minimum(coords, 1)  # I don't really like this
 
-    # h, w = image.shape[:-1]
+    h, w = image.shape[:-1]
     transform = A.Compose([
-        A.OneOf([
-            A.Blur(p=0.25),
-            A.MotionBlur(p=0.25),
-            A.PixelDropout(p=0.25)
-        ]),
-        # A.HorizontalFlip(p=0.5),
+        # A.OneOf([
+        #     A.Blur(p=0.25),
+        #     A.MotionBlur(p=0.25),
+        #     A.PixelDropout(p=0.25)
+        # ]),
+        A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.RandomBrightnessContrast(p=0.5),
         A.HueSaturationValue(p=0.5),
         A.ISONoise(p=0.5),
-        # A.RandomSizedBBoxSafeCrop(h, w, p=0.25),
-        A.OneOf([
-            A.Affine(p=0.25),
-            A.Perspective(p=0.25)
-        ])
+        A.RandomSizedBBoxSafeCrop(height=h, width=w, p=0.5)
+        # A.OneOf([
+        #     A.Affine(p=0.25),
+        #     A.Perspective(p=0.25)
+        # ])
     ], bbox_params=A.BboxParams(format="albumentations", min_visibility=0.4, label_fields=["class_labels"]))
 
     result = transform(image=image, bboxes=coords, class_labels=labels)
@@ -64,10 +64,12 @@ def augment_data(image, boxes, labels):
     transformed_labels = result["class_labels"]
 
     if transformed_boxes.shape == (0,):
-        transformed_boxes = np.empty((0, 4))
+        transformed_boxes = np.empty_like(boxes)
     
     centroids = box_utils.convert_to_centroids(transformed_boxes)
     data = [transformed_img, centroids, transformed_labels]
+
+    # box_utils.plot_ious(centroids, np.empty_like(transformed_boxes), Image.fromarray(transformed_img, mode="RGB"))
 
     return data
 
@@ -93,7 +95,7 @@ def prepare_training(image, default_boxes, preprocess_function, gt_boxes, label_
         confidences = np.zeros((len(default_boxes), label_amount + 1), dtype="uint8")
 
         for gt_index, default_index in enumerate(matches):
-            offset = box_utils.calculate_offset(gt_box[gt_index], default_boxes[default_index])
+            offset = box_utils.calculate_offset(gt_box[gt_index], default_boxes[default_index], sq_variances=config.SQ_VARIANCES)
 
             locations[default_index] = offset
             confidences[default_index, labels[gt_index] + 1] = 1
@@ -105,7 +107,7 @@ def prepare_training(image, default_boxes, preprocess_function, gt_boxes, label_
     return generated_data
 
 
-def prepare_dataset(path, default_boxes=None, preprocess_function=None, training_ratio=0, used_ratio=1, start_index=0):
+def prepare_dataset(path, training_ratio=0, default_boxes=None, preprocess_function=None, used_ratio=1, start_index=0):
     dataset = [[], []]
     annotations = files.load(path)
 
@@ -193,7 +195,7 @@ if __name__ == "__main__":
 
     div = 4
     for i in range(div):
-        training_dataset, testing_dataset = prepare_dataset("dataset", default_boxes=model.default_boxes, preprocess_function=model.preprocess_function, training_ratio=config.TRAINING_SPLIT, used_ratio=1 / div, start_index=i / div)
+        training_dataset, testing_dataset = prepare_dataset("dataset", training_ratio=config.TRAINING_SPLIT, default_boxes=model.default_boxes, preprocess_function=model.preprocess_function, used_ratio=1 / div, start_index=i / div)
 
         retrain(model, training_dataset, int(config.TRAINING_ITERATIONS / div), config.EPOCHS)
 

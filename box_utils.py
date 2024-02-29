@@ -119,7 +119,7 @@ def plot_ious(gts, boxes, img, labels=None, confidences=None, name="boxes.png", 
 		ax.add_artist(Rectangle((gt_coord[0], gt_coord[1]), gt[2], gt[3], linewidth=1, edgecolor="g", facecolor="none"))
 
 	for box, coord, iou, label, confidence in zip(boxes, coords, np.transpose(ious), labels, confidences):
-		ax.add_artist(Rectangle((coord[0], coord[1]), box[2], box[3], linewidth=1, edgecolor="r", facecolor="none"))
+		ax.add_artist(Rectangle((coord[0], coord[1]), box[2], box[3], linewidth=1, edgecolor="r", facecolor="none"))  # Could do opacity based on confidence
 
 		left, top = box[0], coord[1]
 		plt.text(left, top - 5, f"IOU: {np.max(iou):.3f}", horizontalalignment="center", fontdict=iou_font)  # Doesn't say which gt the iou is for but should be fine
@@ -132,7 +132,7 @@ def plot_ious(gts, boxes, img, labels=None, confidences=None, name="boxes.png", 
 	plt.close()
 
 
-def calculate_offset(gt, boxes, variances_sq=None):
+def calculate_offset(gt, boxes, sq_variances=None):
 	cx = (gt[0] - boxes[:, 0]) / boxes[:, 2]
 	cy = (gt[1] - boxes[:, 1]) / boxes[:, 3]
 	w = np.log(gt[2] / boxes[:, 2])
@@ -140,8 +140,8 @@ def calculate_offset(gt, boxes, variances_sq=None):
 
 	offset = np.moveaxis([cx, cy, w, h], 0, -1)
 
-	if variances_sq is not None:
-		offset /= np.sqrt(variances_sq)
+	if sq_variances is not None:
+		offset /= np.sqrt(sq_variances)
 
 	return offset
 
