@@ -129,23 +129,25 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		pos_losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
 		neg_losses = pos_losses
 
-		pos_mask = tf.not_equal(y_true[:, :, 0], 1)
-		pos_multiplier = tf.cast(pos_mask, tf.float32)
-		pos_losses *= pos_multiplier
+		pos_mask = y_true[:, :, 0] != 1
+		pos_losses *= tf.cast(pos_mask, tf.float32)
 
-		neg_mask = tf.logical_not(pos_mask)
-		neg_multiplier = tf.cast(neg_mask, tf.float32)
-		neg_losses *= neg_multiplier
+		neg_mask = ~pos_mask
+		neg_losses *= tf.cast(neg_mask, tf.float32)
 
 		sorted_neg_losses = tf.sort(neg_losses, direction="DESCENDING")
-		ks = tf.expand_dims(tf.reduce_sum(tf.cast(pos_mask, tf.int32), axis=-1) * tf.constant(self.hard_neg_ratio), axis=-1)
 
+		ks = tf.reduce_sum(tf.cast(pos_mask, tf.int32), axis=-1) * tf.constant(self.hard_neg_ratio)
+		ks_expanded = ks[..., None]  # tf.expand_dims(x, axis=-1)
 		indices = tf.range(tf.shape(sorted_neg_losses)[-1])
-		indices_expanded = tf.expand_dims(indices, axis=0)  # indices[None] ?
-		mask_tensor = tf.where(indices_expanded <= ks, tf.ones_like(indices_expanded, dtype=tf.float32), tf.zeros_like(indices_expanded, dtype=tf.float32))
-		top_neg_losses = mask_tensor * sorted_neg_losses
+		indices_expanded = indices[None]  # tf.expand_dims(x, axis=0)
 
-		loss = tf.reduce_sum(tf.concat([pos_losses, top_neg_losses], axis=-1), axis=-1)
+		top_neg_mask = indices_expanded < ks_expanded
+		top_neg_losses = sorted_neg_losses * tf.cast(top_neg_mask, tf.float32)
+
+		pos_loss = tf.reduce_sum(pos_losses, axis=-1)
+		neg_loss = tf.reduce_sum(top_neg_losses, axis=-1)
+		loss = pos_loss + neg_loss
 
 		return loss
 
