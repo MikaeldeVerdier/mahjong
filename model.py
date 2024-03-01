@@ -103,25 +103,13 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 	def huber_with_mask(self, y_true, y_pred):
 		pos_losses = Huber(reduction="none")(y_true, y_pred)
 
-		pos_mask = tf.reduce_any(tf.not_equal(y_true, 0), axis=-1)
+		pos_mask = tf.reduce_any(y_true != 0, axis=-1)
 		pos_multiplier = tf.cast(pos_mask, tf.float32)
 		pos_losses *= pos_multiplier
 
-		# neg_mask = tf.logical_not(pos_mask)
-		# neg_multiplier = tf.cast(neg_mask, tf.float32)
-		# neg_losses *= neg_multiplier
+		pos_amount = tf.reduce_sum(pos_multiplier, axis=-1)
 
-		# sorted_neg_losses = tf.sort(neg_losses, direction="DESCENDING")  # In SSD, this is traditionally sorted by CONFIDENCE loss, not locations.
-		# ks = tf.expand_dims(tf.reduce_sum(tf.cast(pos_mask, tf.int32), axis=-1), axis=-1)
-
-		# indices = tf.range(tf.shape(sorted_neg_losses)[-1])
-		# indices_expanded = tf.expand_dims(indices, axis=0)
-		# mask_multiplier = tf.where(indices_expanded <= ks, tf.ones_like(indices_expanded, dtype=tf.float32), tf.zeros_like(indices_expanded, dtype=tf.float32))
-		# top_neg_losses = mask_multiplier * sorted_neg_losses
-
-		# loss = tf.reduce_sum(tf.concat([pos_losses, top_neg_losses], axis=-1), axis=-1)
-
-		loss = tf.reduce_sum(pos_losses, axis=-1)
+		loss = tf.reduce_sum(pos_losses, axis=-1) / pos_amount  # Shouldn't handle cases with 0 matches (0 gts)
 
 		return loss
 
@@ -130,14 +118,17 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		neg_losses = pos_losses
 
 		pos_mask = y_true[:, :, 0] != 1
-		pos_losses *= tf.cast(pos_mask, tf.float32)
+		pos_multiplier = tf.cast(pos_mask, tf.float32)
+		pos_losses *= pos_multiplier
 
 		neg_mask = ~pos_mask
-		neg_losses *= tf.cast(neg_mask, tf.float32)
+		neg_multiplier = tf.cast(neg_mask, tf.float32)
+		neg_losses *= neg_multiplier
 
 		sorted_neg_losses = tf.sort(neg_losses, direction="DESCENDING")
 
-		ks = tf.reduce_sum(tf.cast(pos_mask, tf.int32), axis=-1) * tf.constant(self.hard_neg_ratio)
+		pos_amount = tf.reduce_sum(pos_multiplier, axis=-1)
+		ks = tf.cast(pos_amount, tf.int32) * tf.constant(self.hard_neg_ratio)
 		ks_expanded = ks[..., None]  # tf.expand_dims(x, axis=-1)
 		indices = tf.range(tf.shape(sorted_neg_losses)[-1])
 		indices_expanded = indices[None]  # tf.expand_dims(x, axis=0)
@@ -147,7 +138,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		pos_loss = tf.reduce_sum(pos_losses, axis=-1)
 		neg_loss = tf.reduce_sum(top_neg_losses, axis=-1)
-		loss = pos_loss + neg_loss
+		loss = (pos_loss + neg_loss) / pos_amount  # Shouldn't handle cases with 0 matches (0 gts)
 
 		return loss
 
