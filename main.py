@@ -155,39 +155,115 @@ def retrain(model, dataset, iteration_amount, epochs):
 
 
 def inference(mlmodel, image):  # PIL Image
-    locations, confidences = mlmodel.predict({"image": image}).values()
+    locations, confidences = mlmodel.predict({"image": image, "confidenceThreshold": 0.2}).values()
     predicted_labels = np.array(labels)[np.argmax(confidences, axis=-1)]
     # scaled_boxes = box_utils.scale_box(locations, input_shape[:-1])
-    label_confs = confidences[np.arange(len(confidences)), np.argmax(confidences, axis=-1)]
+    label_confs = np.max(confidences, axis=-1)
 
     label_infos = [predicted_labels, locations, label_confs]
 
     return label_infos
 
 
-def evaluate(mlmodel, dataset, iou_threshold=0.5):
-    amount_true_pos = 0
-    amount_false_pos = 0
-    amount_false_neg = 0
+# def evaluate(mlmodel, dataset, iou_threshold=0.5):
+#     amount_true_pos = 0
+#     amount_false_pos = 0
+#     amount_false_neg = 0
+
+#     for image, gt_boxes, gt_labels in dataset:
+#         predicted_labels, predicted_boxes, predicted_confidences = inference(mlmodel, image)
+
+#         # box_utils.plot_ious(gt_boxes, predicted_boxes, image, labels=predicted_labels, confidences=predicted_confidences)
+
+#         ious = box_utils.calculate_iou(gt_boxes, predicted_boxes)
+
+#         amount_false_pos += len(predicted_labels)
+#         for iou, gt_label in zip(ious, gt_labels):
+#             if np.count_nonzero(predicted_labels[iou > iou_threshold] == labels[gt_label]):
+#                 amount_true_pos += 1
+#                 amount_false_pos -= 1
+#             else:
+#                 amount_false_neg += 1
+
+#     metric_value = amount_true_pos / (amount_true_pos + amount_false_pos + amount_false_neg) if any([amount_true_pos, amount_false_pos, amount_false_neg]) else 0
+
+#     return metric_value
+
+def calculate_precision_recall(pred, gt, iou_threshold=0.5):
+    # true_positives = 0
+    # false_positives = 0
+    # false_negatives = 0
+
+    # for pred_box in pred:
+    #     ious = box_utils.calculate_iou(np.array([pred_box[1]]), np.array([g[1] for g in gt]))
+    #     max_iou = np.max(ious)
+
+    #     if max_iou >= iou_threshold:
+    #         true_positives += 1
+    #     else:
+    #         false_positives += 1
+
+    # false_negatives = max(len(gt) - true_positives, 0)
+
+    ious = box_utils.calculate_iou(np.array(pred), np.array(gt))
+    max_ious = np.max(ious, axis=-1)
+
+    true_positives = np.count_nonzero(max_ious >= iou_threshold)
+    false_positives = len(max_ious) - true_positives
+    false_negatives = np.maximum(len(gt) - true_positives, 0)
+
+    precision = true_positives / (true_positives + false_positives + 1e-10)
+    recall = true_positives / (true_positives + false_negatives + 1e-10)
+
+    return precision, recall
+
+
+def calculate_average_precision(predictions, ground_truth, iou_threshold=0.5):
+    precision_values = []
+    recall_values = []
+
+    for confidence_threshold in np.arange(1, -0.1, -0.1):  # Typically this would rather be np.arange(0, 1.1, 0.1)
+        confident_boxes = [pred[1] for pred in predictions if pred[2] >= confidence_threshold] or np.empty(shape=(0, 4))
+        gt_boxes = [gt[1] for gt in ground_truth]
+
+        precision, recall = calculate_precision_recall(confident_boxes, gt_boxes, iou_threshold)
+        precision_values.append(precision)
+        recall_values.append(recall)
+
+    precision_values = np.array(precision_values)
+    recall_values = np.array(recall_values)
+
+    interpolated_precision = np.maximum.accumulate(precision_values[::-1])[::-1]  # [np.max(precision_values[i:]) for i in range(len(precision_values))]
+    recall_diff = np.diff(recall_values, prepend=0)
+
+    average_precision = np.sum(interpolated_precision * recall_diff)
+
+    return average_precision
+
+
+def evaluate(mlmodel, dataset):
+    all_preds = []
+    all_gts = []
 
     for image, gt_boxes, gt_labels in dataset:
-        predicted_labels, predicted_boxes, predicted_confidences = inference(mlmodel, image)
+        pred = inference(mlmodel, image)
 
-        # box_utils.plot_ious(gt_boxes, predicted_boxes, image, labels=predicted_labels, confidences=predicted_confidences)
+        # box_utils.plot_ious(gt_boxes, pred[1], image, labels=pred[0], confidences=pred[2])
 
-        ious = box_utils.calculate_iou(gt_boxes, predicted_boxes)
+        all_preds.append(list(zip(*pred)))
+        all_gts.append(list(zip(*[np.array(labels)[gt_labels], gt_boxes])))
 
-        amount_false_pos += len(predicted_labels)
-        for iou, gt_label in zip(ious, gt_labels):
-            if np.count_nonzero(predicted_labels[iou > iou_threshold] == labels[gt_label]):
-                amount_true_pos += 1
-                amount_false_pos -= 1
-            else:
-                amount_false_neg += 1
+    ap_values = []
+    for label in labels:
+        pred_class = [pred for preds in all_preds for pred in preds if pred[0] == label]
+        gt_class = [gt for gts in all_gts for gt in gts if gt[0] == label]
 
-    metric_value = amount_true_pos / (amount_true_pos + amount_false_pos + amount_false_neg) if any([amount_true_pos, amount_false_pos, amount_false_neg]) else 0
+        average_precision = calculate_average_precision(pred_class, gt_class)
+        ap_values.append(average_precision)
 
-    return metric_value
+    mean_average_precision = np.mean(ap_values)
+
+    return mean_average_precision
 
 
 if __name__ == "__main__":
