@@ -6,8 +6,8 @@ import config
 
 # All functions asume centroids for bounding boxes (except convert_to_centroids)
 
-def default_boxes(k, m, aspect_ratios, f, s=[0.1, 0.5], im_aspect_ratio=1):
-	def s(k, m, s_min=s[0], s_max=s[1]):
+def default_boxes(k, m, aspect_ratios, f, scales=[0.1, 0.5], im_aspect_ratio=1):
+	def s(k, m, s_min=scales[0], s_max=scales[1]):
 		return s_min + (s_max - s_min) / (m - 1) * (k - 1)
 
 	scale_i = s(k, m)

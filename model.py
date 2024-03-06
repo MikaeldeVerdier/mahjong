@@ -507,7 +507,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		
 		self.mlmodel = self.create_pipeline([mlmodel, nms_model])
 	
-	def save_mlmodel(self, metadata_changes={}, precision_nbits=16):
+	def save_mlmodel(self, metadata_changes={}, precision_nbits=16, name="output_model"):
 		pipeline_spec = self.mlmodel.get_spec()
 
 		num_classes = pipeline_spec.description.output[0].type.multiArrayType.shapeRange.sizeRanges[1].lowerBound
@@ -539,4 +539,14 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		ct_model = ct.models.MLModel(pipeline_spec)
 
 		quantized_model = ct.models.neural_network.quantization_utils.quantize_weights(ct_model, precision_nbits)
-		quantized_model.save(f"{config.SAVE_FOLDER_PATH}/output_model.mlpackage")
+		quantized_model.save(f"{config.SAVE_FOLDER_PATH}/{name}.mlpackage")
+
+	def inference(self, image, labels, iou_threshold=0.45, confidence_threshold=0.25):  # PIL Image
+		locations, confidences = self.mlmodel.predict({"image": image, "iouThreshold": iou_threshold, "confidenceThreshold": confidence_threshold}).values()
+		predicted_labels = np.array(labels)[np.argmax(confidences, axis=-1)]
+		# scaled_boxes = box_utils.scale_box(locations, input_shape[:-1])
+		label_confs = np.max(confidences, axis=-1)
+
+		label_infos = [predicted_labels, locations, label_confs]
+
+		return label_infos
