@@ -96,12 +96,16 @@ def calculate_precision_recall(preds_gts, iou_threshold=0.5):
 
     # false_negatives = max(len(gt) - true_positives, 0)
     for pred, gt in preds_gts:
-        ious = box_utils.calculate_iou(np.array([pr[1] for pr in pred]), np.array([g[1] for g in gt]))
-        max_ious = np.max(ious, axis=-1)
+        if len(pred) and len(gt):
+            ious = box_utils.calculate_iou(pred, gt)
+            max_ious = np.max(ious, axis=-1)
 
-        amount_pos = np.count_nonzero(max_ious >= iou_threshold)
+            amount_pos = np.count_nonzero(max_ious >= iou_threshold)
+        else:
+            amount_pos = 0
+
         true_positives += amount_pos
-        false_positives += len(max_ious) - amount_pos
+        false_positives += len(pred) - amount_pos
         false_negatives += np.maximum(len(gt) - amount_pos, 0)
 
     # ious = box_utils.calculate_iou(np.array([pr[0][1] for pr in pred]), np.array([g[0][1] for g in gt]))
@@ -122,8 +126,18 @@ def calculate_average_precision(preds_gts, iou_threshold=0.5):
     recall_values = []
 
     for confidence_threshold in np.arange(1, -0.1, -0.1):
-        empty = [["", [1e-10] * 4]]  # [["", np.empty(shape=(4,))]]
-        confident_preds_gts = [([pr for pr in pred_gt[0] if pr[2] >= confidence_threshold] or empty, pred_gt[1] or empty) for pred_gt in preds_gts]
+        confident_preds_gts = []
+        for preds, gts in preds_gts:
+            pr = np.array([pred[1] for pred in preds if pred[2] >= confidence_threshold])
+            g = np.array([gt[1] for gt in gts])
+
+            if not len(pr):
+                pr = np.empty(shape=(0, 4))
+            if not len(g):
+                g = np.empty(shape=(0, 4))
+            if len(pr) or len(g):
+                confident_preds_gts.append((pr, g))
+        # confident_preds_gts = [([pr for pr in pred_gt[0] if pr[2] >= 0.1] or empty, pred_gt[1] or empty) for pred_gt in preds_gts]
         # reduced_confident_preds_gts = [pred_gt for pred_gt in confident_preds_gts if pred_gt != ([["", np.empty(4,)]], [["", np.empty((4,))]])]
 
         precision, recall = calculate_precision_recall(confident_preds_gts, iou_threshold)
@@ -142,28 +156,18 @@ def calculate_average_precision(preds_gts, iou_threshold=0.5):
 
 
 def evaluate(model, dataset, labels):
-    all_preds = []
-    all_gts = []
-
-    # all_pred_gts = []
+    all_preds_gts = []
 
     for image, gt_boxes, gt_labels in dataset:
         pred = model.inference(image, labels)
 
-        # box_utils.plot_ious(gt_boxes, pred[1], image, labels=pred[0], confidences=pred[2])
-
-        all_preds.append(list(zip(*pred)))
-        all_gts.append(list(zip(*[np.array(labels)[gt_labels], gt_boxes])))
-
-        # all_pred_gts.append((list(zip(*pred))), list(zip(*[np.array(labels)[gt_labels], gt_boxes])))
+        preds = list(zip(*pred))
+        gts = list(zip(*[np.array(labels)[gt_labels], gt_boxes]))
+        all_preds_gts.append((preds, gts))
 
     ap_values = []
     for label in labels:
-        # gt_preds = [gt_pred for gt_pred in all_pred_gts for (preds, gts) in gt_pred if preds]
-        # pred_class = [[pred for pred in preds if pred[0] == label] for preds in all_preds]
-        # gt_class = [[gt for gt in gts if gt[0] == label] for gts in all_gts]
-
-        preds_gts = [([pred for pred in preds if pred[0] == label], [gt for gt in gts if gt[0] == label]) for gts, preds in zip(all_gts, all_preds)]
+        preds_gts = [([pred for pred in preds if pred[0] == label], [gt for gt in gts if gt[0] == label]) for preds, gts in all_preds_gts]
         reduced_preds_gts = [pred_gt for pred_gt in preds_gts if pred_gt != ([], [])]
 
         average_precision = calculate_average_precision(reduced_preds_gts)

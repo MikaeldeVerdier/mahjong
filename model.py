@@ -285,7 +285,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 	def create_decoded_tfmodel(self, sq_variances):  # Not actually necessary, could just add them together in pipeline
 		inp = Input(shape=self.input_shape, name="image")
-		x = preprocess_input(inp)
+		x = self.preprocess_function(inp)
 
 		class_predictions, location_predictions = self.model(x)
 
