@@ -13,9 +13,11 @@ from keras.losses import CategoricalCrossentropy, Huber
 # from keras.metrics import MeanSquaredError, Accuracy
 from keras.models import Model, load_model
 from keras.optimizers import SGD
+from keras.regularizers import L2
 
 import box_utils
 import config
+from l2_norm import L2Normalization
 
 class SSD_Model:  # Consider instead saving weights, and using a seperate training and inference model (to decode in model)
 	def __init__(self, input_shape, class_amount, lr=config.LEARNING_RATE, momentum=config.MOMENTUM, hard_neg_ratio=config.HARD_NEGATIVE_RATIO, load=False):
@@ -28,50 +30,48 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		if load is not False:
 			self.load_model(load)
 			return
+		
+		self.build_model(lr, momentum)
 
-		base_network = VGG16(include_top=False, weights="imagenet", input_shape=input_shape)
+	def build_model(self, learning_rate, momentum):
+		base_network = VGG16(include_top=False, weights="imagenet", input_shape=self.input_shape)
 		base_network.layers[-1].pool_size = (3, 3)
 		base_network.layers[-1].strides = (1, 1)
 
-		# frozen_layer_amount = 5
-		# for layer in base_network.layers[:frozen_layer_amount]:
-		# 	layer.trainable = False
 		base_network.trainable = False
-
-		# inp = Input(shape=self.inp_shape)
 
 		outputs = []
 
 		x = base_network.get_layer("block4_conv3").output
-		x = tf.math.l2_normalize(x)
+		x = L2Normalization(gamma_init=20)(x)
 		outputs.append(x)
 
 		x = base_network.get_layer("block5_conv3").output
 
 		# Auxiliary layers
-		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", activation="relu")(x)
-		x = Conv2D(filters=1024, kernel_size=(1, 1), activation="relu")(x)
+		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=1024, kernel_size=(1, 1), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 
-		x = Conv2D(filters=256, kernel_size=(1, 1), activation="relu")(x)
-		x = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding="same", activation="relu")(x)
+		x = Conv2D(filters=256, kernel_size=(1, 1), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding="same", activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 
-		x = Conv2D(filters=128, kernel_size=(1, 1), activation="relu")(x)
-		x = Conv2D(filters=256, kernel_size=(3, 3), strides=(2, 2), padding="same", activation="relu")(x)
+		x = Conv2D(filters=128, kernel_size=(1, 1), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=256, kernel_size=(3, 3), strides=(2, 2), padding="same", activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 
-		x = Conv2D(filters=128, kernel_size=(1, 1), activation="relu")(x)
-		x = Conv2D(filters=256, kernel_size=(3, 3), activation="relu")(x)
+		x = Conv2D(filters=128, kernel_size=(1, 1), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=256, kernel_size=(3, 3), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 
-		x = Conv2D(filters=128, kernel_size=(1, 1), activation="relu")(x)
-		x = Conv2D(filters=256, kernel_size=(3, 3), activation="relu")(x)
+		x = Conv2D(filters=128, kernel_size=(1, 1), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=256, kernel_size=(3, 3), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 		#
 
 		self.default_boxes = np.empty(shape=(0, 4))
-		im_aspect_ratio = input_shape[0] / input_shape[1]
+		im_aspect_ratio = self.input_shape[0] / self.input_shape[1]
 		aspect_ratios = [ar * im_aspect_ratio for ar in [0.67, 1, 1.33]]
 
 		head_outputs = [[], []]
@@ -80,12 +80,12 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 			# defaults = default_boxes(k, len(outputs), aspect_ratios, output.shape[1:3])
 			self.default_boxes = np.concatenate([self.default_boxes, defaults.reshape(-1, 4)])
 
-			location_pred = Conv2D(filters=len(defaults) * 4, kernel_size=(3, 3), padding="same")(output)
+			location_pred = Conv2D(filters=len(defaults) * 4, kernel_size=(3, 3), padding="same", kernel_regularizer=L2(config.L2_REG))(output)
 			location_pred = Reshape((-1, 4))(location_pred)
 			head_outputs[0].append(location_pred)
 
-			class_pred = Conv2D(filters=len(defaults) * (class_amount + 1), kernel_size=(3, 3), padding="same")(output)
-			class_pred = Reshape((-1, class_amount + 1))(class_pred)
+			class_pred = Conv2D(filters=len(defaults) * (self.class_amount + 1), kernel_size=(3, 3), padding="same", kernel_regularizer=L2(config.L2_REG))(output)
+			class_pred = Reshape((-1, self.class_amount + 1))(class_pred)
 			class_pred = Activation("softmax")(class_pred)
 			head_outputs[1].append(class_pred)
 
@@ -93,7 +93,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		class_predictions = Concatenate(axis=1, name="confidences")(head_outputs[1])
 
 		self.model = Model(inputs=[base_network.input], outputs=[class_predictions, location_predictions])
-		self.model.compile(loss={"locations": self.huber_with_mask, "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=lr, momentum=momentum), loss_weights={"confidences": 1, "locations": 1})  # , metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
+		self.model.compile(loss={"locations": self.huber_with_mask, "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=learning_rate, momentum=momentum), loss_weights={"confidences": 1, "locations": 1})  # , metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
 
 		self.plot_model()
 		self.model.summary()
