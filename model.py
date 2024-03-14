@@ -49,7 +49,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		x = base_network.get_layer("block5_conv3").output
 
 		# Auxiliary layers
-		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", dilation_rate=(6, 6), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		x = Conv2D(filters=1024, kernel_size=(1, 1), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 
@@ -280,6 +280,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		# locs = Concatenate(axis=-1)([decoded_xy + decoded_wh])
 
 		decoder_model = Model(inputs=[conf_inp, offset_inp], outputs=[confs, locs], name="decoderModel")
+		decoder_model.compile()
 
 		return decoder_model
 
@@ -510,13 +511,13 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 	def save_mlmodel(self, metadata_changes={}, precision_nbits=16, name="output_model"):
 		pipeline_spec = self.mlmodel.get_spec()
 
-		num_classes = pipeline_spec.description.output[0].type.multiArrayType.shapeRange.sizeRanges[1].lowerBound
+		# num_classes = pipeline_spec.description.output[0].type.multiArrayType.shapeRange.sizeRanges[1].lowerBound
 
 		metadata = {
 			"image_input_description": "Input image",
 			"iou_threshold_input_description": f"(optional) IOU threshold override (default: {str(self.iou_threshold)})",
 			"conf_threshold_input_description": f"(optional) Confidence threshold override (default: {str(self.conf_threshold)})",
-			"confidences_output_description": f"Found boxes × [conf_label1, conf_label2, ..., conf_label{num_classes}]",
+			"confidences_output_description": f"Found boxes × [class_label1, class_label2, ..., class_label{self.class_amount}]",
 			"locations_output_description": "Found boxes × [x, y, width, height] (relative to image size)",
 			"general_description": "Object detector for Mahjong tiles",
 			"author": "Mikael de Verdier",

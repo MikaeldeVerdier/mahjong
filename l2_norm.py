@@ -3,7 +3,7 @@ import tensorflow as tf
 from keras.layers import Layer
 
 class L2Normalization(Layer):
-    def __init__(self, gamma_init=1e-12, axis=-1):
+    def __init__(self, gamma_init=1, axis=-1):
         self.axis = axis
         self.gamma_init = gamma_init
 

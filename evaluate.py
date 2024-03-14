@@ -161,6 +161,8 @@ def evaluate(model, dataset, labels):
     for image, gt_boxes, gt_labels in dataset:
         pred = model.inference(image, labels)
 
+        # box_utils.plot_ious(gt_boxes, pred[1], image, labels=pred[0], confidences=pred[2])
+
         preds = list(zip(*pred))
         gts = list(zip(*[np.array(labels)[gt_labels], gt_boxes]))
         all_preds_gts.append((preds, gts))
