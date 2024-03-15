@@ -138,7 +138,7 @@ def calculate_offset(gt, boxes, sq_variances=None):
 	w = np.log(gt[2] / boxes[:, 2])
 	h = np.log(gt[3] / boxes[:, 3])
 
-	offset = np.moveaxis([cx, cy, w, h], 0, -1)
+	offset = np.moveaxis([cy, cx, h, w], 0, -1)
 
 	if sq_variances is not None:
 		offset /= np.sqrt(sq_variances)
