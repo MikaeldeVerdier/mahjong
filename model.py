@@ -29,9 +29,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		if load is not False:
 			self.load_model(load)
-			return
-		
-		self.build_model(lr, momentum)
+		else:
+			self.build_model(lr, momentum)
 
 	def build_model(self, learning_rate, momentum):
 		base_network = VGG16(include_top=False, weights="imagenet", input_shape=self.input_shape)
@@ -265,16 +264,16 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		wh = offset_inp[:, :, 2:]
 		xy = offset_inp[:, :, :2]
 
-		defaults_xy, defaults_wh = self.default_boxes[:, :2][None], self.default_boxes[:, 2:][None]
-
+		defaults_xy = self.default_boxes[:, :2][None]
+		defaults_wh = self.default_boxes[:, 2:][None]
 		tensor_def_xy = tf.constant(defaults_xy, dtype="float32")
 		tensor_def_wh = tf.constant(defaults_wh, dtype="float32")
 
-		sq_variances_xy, sq_variances_wh = sq_variances[:2], sq_variances[2:]
+		sq_variances_xy = tf.constant(sq_variances[:2])
+		sq_variances_wh = tf.constant(sq_variances[2:])
 
 		decoded_xy = xy * tensor_def_wh * np.sqrt(sq_variances_xy) + tensor_def_xy
-		decoded_wh = tf.exp(wh * np.sqrt(sq_variances_wh)) * tensor_def_wh  # From guide
-		# decoded_wh = tf.exp(wh) * tensor_def_wh * np.sqrt(sq_variances_wh)  # Shouldn't it be this?
+		decoded_wh = tf.exp(wh * np.sqrt(sq_variances_wh)) * tensor_def_wh
 
 		locs = Concatenate(axis=-1)([decoded_xy, decoded_wh])
 		# locs = Concatenate(axis=-1)([decoded_xy + decoded_wh])
@@ -309,7 +308,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		output_sizes = [self.class_amount, 4]
 		for i in range(2):
 			old_name = spec.description.output[i].name
-			ct.utils.rename_feature(spec, old_name, new_names[i])
+			ct.utils.rename_feature(spec, old_name, new_names[i])  # Why?
 			spec.description.output[i].type.multiArrayType.shape.extend([len(self.default_boxes), output_sizes[i]])
 			spec.description.output[i].type.multiArrayType.dataType = ct.proto.FeatureTypes_pb2.ArrayFeatureType.DOUBLE
 
