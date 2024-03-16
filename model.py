@@ -465,13 +465,12 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		return nms_model
 	
-	def create_pipeline(self, models):
+	def create_pipeline(self, models):  # Very partially general (weird)
 		input_features = [
 			("image", ct.models.datatypes.Array(0)),  # Doesn't matter, is changed later anyway
 			("iouThreshold", ct.models.datatypes.Double()),
 			("confidenceThreshold", ct.models.datatypes.Double())
 		]
-
 		output_features = ["confidence", "coordinates"]
 
 		pipeline = ct.models.pipeline.Pipeline(input_features, output_features)
@@ -491,9 +490,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		pipeline.spec.description.output[1].ParseFromString(models[-1].get_spec().description.output[1].SerializeToString())
 
 		pipeline.spec.specificationVersion = 5
-
 		pipeline_model = ct.models.MLModel(pipeline.spec)
-		
+
 		return pipeline_model
 
 	def convert_to_mlmodel(self, labels, iou_threshold=0.45, conf_threshold=0.25, sq_variances=config.SQ_VARIANCES):
@@ -533,7 +531,6 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		pipeline_spec.description.metadata.shortDescription = metadata["general_description"]
 		pipeline_spec.description.metadata.author = metadata["author"]
-
 		pipeline_spec.description.metadata.userDefined.update(metadata["additional"])
 
 		ct_model = ct.models.MLModel(pipeline_spec)
