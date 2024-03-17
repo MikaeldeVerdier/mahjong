@@ -4,7 +4,7 @@ import numpy as np
 import config
 
 def retrain(model, dataset, iteration_amount, epochs, saved_ratio=1):
-    for i in range(iteration_amount):
+    for i in range(1, iteration_amount + 1):
         x, y_loc, y_conf = zip(*random.sample(dataset, config.BATCH_SIZE))
 
         x = np.array(x)

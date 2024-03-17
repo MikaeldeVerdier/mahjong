@@ -175,6 +175,6 @@ def evaluate(model, dataset, labels):
         average_precision = calculate_average_precision(reduced_preds_gts)
         ap_values.append(average_precision)
 
-    mean_average_precision = np.mean(ap_values)
+    mean_average_precision = np.mean(ap_values)  # What about if there are no gts for the class?
 
     return mean_average_precision

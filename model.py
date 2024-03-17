@@ -108,7 +108,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		pos_amount = tf.reduce_sum(pos_multiplier, axis=-1)
 
-		loss = tf.reduce_sum(pos_losses, axis=-1) / pos_amount  # Shouldn't handle cases with 0 matches (0 gts)
+		loss = tf.reduce_sum(pos_losses, axis=-1) / (pos_amount + 1e-10)
+		loss *= tf.cast(pos_amount != 0, tf.float32)  # Should it handle cases with 0 matches (0 gts)
 
 		return loss
 
@@ -128,7 +129,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		pos_amount = tf.reduce_sum(pos_multiplier, axis=-1)
 		ks = tf.cast(pos_amount, tf.int32) * tf.constant(self.hard_neg_ratio)
-		ks_expanded = ks[..., None]  # tf.expand_dims(x, axis=-1)
+		ks_expanded = ks[:, None]  # tf.expand_dims(x, axis=-1)
 		indices = tf.range(tf.shape(sorted_neg_losses)[-1])
 		indices_expanded = indices[None]  # tf.expand_dims(x, axis=0)
 
@@ -137,7 +138,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		pos_loss = tf.reduce_sum(pos_losses, axis=-1)
 		neg_loss = tf.reduce_sum(top_neg_losses, axis=-1)
-		loss = (pos_loss + neg_loss) / pos_amount  # Shouldn't handle cases with 0 matches (0 gts)
+		loss = (pos_loss + neg_loss) / (pos_amount + 1e-10)
+		loss *= tf.cast(pos_amount != 0, tf.float32)  # Should it handle cases with 0 matches (0 gts)
 
 		return loss
 

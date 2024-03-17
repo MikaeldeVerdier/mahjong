@@ -75,8 +75,8 @@ def prepare_training(image, label_amount, default_boxes, preprocess_function, gt
 
         matches = box_utils.match(gt_box, default_boxes, threshold=0.6)
 
-        locations = np.zeros((len(default_boxes), 4), dtype="float32")
-        confidences = np.zeros((len(default_boxes), label_amount + 1), dtype="uint8")
+        locations = np.zeros((len(default_boxes), 4))
+        confidences = np.zeros((len(default_boxes), label_amount + 1))
 
         for gt_index, default_index in enumerate(matches):
             offset = box_utils.calculate_offset(gt_box[gt_index], default_boxes[default_index], sq_variances=config.SQ_VARIANCES)
