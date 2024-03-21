@@ -5,15 +5,16 @@ import tensorflow as tf
 import coremltools as ct
 
 from keras.utils import plot_model
-from keras.applications import VGG16
+# from keras.applications import VGG16
 from keras.applications.vgg16 import preprocess_input
 # from keras.callbacks import TensorBoard
-from keras.layers import Input, Activation, Concatenate, Conv2D, Reshape
+from keras.layers import Input, Activation, Concatenate, Conv2D, Reshape, MaxPooling2D
 from keras.losses import CategoricalCrossentropy, Huber
 # from keras.metrics import MeanSquaredError, Accuracy
 from keras.models import Model, load_model
 from keras.optimizers import SGD
 from keras.regularizers import L2
+from tensorflow.python.keras.utils import data_utils
 
 import box_utils
 import config
@@ -32,11 +33,49 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		else:
 			self.build_model(lr, momentum)
 
-	def build_model(self, learning_rate, momentum):
-		base_network = VGG16(include_top=False, weights="imagenet", input_shape=self.input_shape)
-		base_network.layers[-1].pool_size = (3, 3)
-		base_network.layers[-1].strides = (1, 1)
+	def build_base(self, kernel_initializer=None, kernel_regularizer=None):
+		""" A truncated version of VGG16 configuration D """
+		# Credit: https://github.com/Socret360/object-detection-in-keras/blob/master/networks/base_networks/truncated_vgg16.py
 
+		input_layer = Input(shape=self.input_shape, name="input")
+
+		conv1_1 = Conv2D(64, (3, 3), activation="relu", padding="same", name="block1_conv1", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(input_layer)
+		conv1_2 = Conv2D(64, (3, 3), activation="relu", padding="same", name="block1_conv2", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(conv1_1)
+		pool1 = MaxPooling2D((2, 2), strides=(2, 2), name="block1_pool", padding="same")(conv1_2)
+
+		conv2_1 = Conv2D(128, (3, 3), activation="relu", padding="same", name="block2_conv1", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(pool1)
+		conv2_2 = Conv2D(128, (3, 3), activation="relu", padding="same", name="block2_conv2", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(conv2_1)
+		pool2 = MaxPooling2D((2, 2), strides=(2, 2), name="block2_pool", padding="same")(conv2_2)
+
+		conv3_1 = Conv2D(256, (3, 3), activation="relu", padding="same", name="block3_conv1", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(pool2)
+		conv3_2 = Conv2D(256, (3, 3), activation="relu", padding="same", name="block3_conv2", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(conv3_1)
+		conv3_3 = Conv2D(256, (3, 3), activation="relu", padding="same", name="block3_conv3", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(conv3_2)
+		pool3 = MaxPooling2D((2, 2), strides=(2, 2), name="block3_pool", padding="same")(conv3_3)
+
+		conv4_1 = Conv2D(512, (3, 3), activation="relu", padding="same", name="block4_conv1", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(pool3)
+		conv4_2 = Conv2D(512, (3, 3), activation="relu", padding="same", name="block4_conv2", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(conv4_1)
+		conv4_3 = Conv2D(512, (3, 3), activation="relu", padding="same", name="block4_conv3", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(conv4_2)
+		pool4 = MaxPooling2D((2, 2), strides=(2, 2), name="block4_pool", padding="same")(conv4_3)
+
+		conv5_1 = Conv2D(512, (3, 3), activation="relu", padding="same", name="block5_conv1", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(pool4)
+		conv5_2 = Conv2D(512, (3, 3), activation="relu", padding="same", name="block5_conv2", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(conv5_1)
+		conv5_3 = Conv2D(512, (3, 3), activation="relu", padding="same", name="block5_conv3", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(conv5_2)
+
+		model = Model(inputs=input_layer, outputs=conv5_3)
+
+		weights_path_no_top = ("https://storage.googleapis.com/tensorflow/keras-applications/vgg16/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5")
+		weights_path = data_utils.get_file("vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5", weights_path_no_top, cache_subdir="models", file_hash="6d6bbae143d832006294945121d1f1fc")
+
+		model.load_weights(weights_path, by_name=True)
+
+		return model
+
+	def build_model(self, learning_rate, momentum):
+		# base_network = VGG16(include_top=False, weights="imagenet", input_shape=self.input_shape)
+		# base_network.layers[-1].pool_size = (3, 3)
+		# base_network.layers[-1].strides = (1, 1)
+
+		base_network = self.build_base(kernel_initializer="he_normal", kernel_regularizer=L2(config.L2_REG))
 		base_network.trainable = False
 
 		outputs = []
