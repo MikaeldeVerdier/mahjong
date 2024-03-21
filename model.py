@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import coremltools as ct
-
 from keras.utils import plot_model
 # from keras.applications import VGG16
 from keras.applications.vgg16 import preprocess_input
@@ -85,6 +84,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		outputs.append(x)
 
 		x = base_network.get_layer("block5_conv3").output
+
+		x = MaxPooling2D(pool_size=(3, 3), strides=(1, 1), padding="same")(x)
 
 		# Auxiliary layers
 		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", dilation_rate=(6, 6), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
