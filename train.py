@@ -16,3 +16,4 @@ def retrain(model, dataset, iteration_amount, epochs, saved_ratio=1):
 
         if not int(i % (iteration_amount / saved_ratio)):
             model.save_model("model")
+            model.plot_metrics()

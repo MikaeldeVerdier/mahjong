@@ -263,8 +263,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		offset_inp = Input(shape=(len(self.default_boxes), 4), name="locationsInput")
 
 		confs = conf_inp[:, :, 1:]
-		hw = offset_inp[:, :, 2:]
 		yx = offset_inp[:, :, :2]
+		hw = offset_inp[:, :, 2:]
 
 		defaults_yx = self.default_boxes[:, :2][:, ::-1][None]
 		defaults_hw = self.default_boxes[:, 2:][:, ::-1][None]

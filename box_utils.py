@@ -11,7 +11,7 @@ def default_boxes(k, m, aspect_ratios, f, scales=[0.1, 0.5], im_aspect_ratio=1):
 		return s_min + (s_max - s_min) / (m - 1) * (k - 1)
 
 	scale_i = s(k, m)
-	extra_box_scale = (scale_i * s(k + 1, m)) ** 0.5
+	extra_box_scale = np.sqrt(scale_i * s(k + 1, m))
 
 	def create_boxes(scale, aspect_ratio, f):
 		w = scale * np.sqrt(aspect_ratio)
