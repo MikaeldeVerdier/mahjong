@@ -1,6 +1,8 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 import box_utils
+import config
 
 # Didn't match them by image
 # def calculate_precision_recall(pred, gt, iou_threshold=0.5):
@@ -36,9 +38,10 @@ import box_utils
 #     precision_values = []
 #     recall_values = []
 
-#     for confidence_threshold in np.arange(1, -0.1, -0.1):  # Typically this would rather be np.arange(0, 1.1, 0.1)
-#         confident_boxes = [pred[1] for pred in predictions if pred[2] >= confidence_threshold] or np.empty(shape=(0, 4))
-#         gt_boxes = [gt[1] for gt in ground_truth]
+#     pred_boxes, pred_confs = zip(*[pred[1:] for pred in predictions])
+#     gt_boxes = np.array([gt[1] for gt in ground_truth])
+#     for confidence_threshold in np.arange(1, -0.1, -0.1):  # np.arange(0, 1.1, 0.01):
+#         confident_boxes = np.array(pred_boxes)[pred_confs >= confidence_threshold]
 
 #         precision, recall = calculate_precision_recall(confident_boxes, gt_boxes, iou_threshold)
 #         precision_values.append(precision)
@@ -52,7 +55,7 @@ import box_utils
 
 #     average_precision = np.sum(interpolated_precision * recall_diff)
 
-#     return average_precision
+#     return average_precision, precision_values, recall_values
 
 
 # def evaluate(model, dataset, labels):
@@ -60,24 +63,52 @@ import box_utils
 #     all_gts = []
 
 #     for image, gt_boxes, gt_labels in dataset:
-#         pred = model.inference(image, labels)
+#         pred = model.inference(image, labels, confidence_threshold=0.05)
 
-#         # box_utils.plot_ious(gt_boxes, pred[1], image, labels=pred[0], confidences=pred[2])
+#         # box_utils.plot_ious(gt_boxes, pred[1]x, image, labels=pred[0], confidences=pred[2])
 
 #         all_preds.append(list(zip(*pred)))
 #         all_gts.append(list(zip(*[np.array(labels)[gt_labels], gt_boxes])))
 
 #     ap_values = []
+#     precision_values = []
+#     recall_values = []
 #     for label in labels:
 #         pred_class = [pred for preds in all_preds for pred in preds if pred[0] == label]
 #         gt_class = [gt for gts in all_gts for gt in gts if gt[0] == label]
 
-#         average_precision = calculate_average_precision(pred_class, gt_class)
+#         average_precision, precisions, recalls = calculate_average_precision(pred_class, gt_class)
 #         ap_values.append(average_precision)
+#         precision_values.append(precisions)
+#         recall_values.append(recalls)
 
 #     mean_average_precision = np.mean(ap_values)
 
+#     plot_p_r(precision_values, recall_values, ap_values, labels)
+
 #     return mean_average_precision
+
+
+def plot_prec_rec(precision_values, recall_values, ap_values, labels):
+    _, ax = plt.subplots(figsize=(10, 10))
+
+    mAP = np.mean(ap_values)
+
+    for precision_value, recall_value, ap_value, label in zip(precision_values, recall_values, ap_values, labels):
+        ax.plot(recall_value, precision_value, label=f"{label} (AP: {(ap_value * 100):.2f}%)")
+        ax.set_xscale("linear")
+        ax.legend()
+
+    plt.title(f"Precision-Recall Curve ({len(labels)} classes, mAP: {(mAP * 100):.2f}%)")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    # plt.grid()
+
+    margins = 0.05
+    plt.xlim(-margins, 1 + margins)
+    plt.ylim(-margins, 1 + margins)
+
+    plt.savefig(f"{config.SAVE_FOLDER_PATH}/precision_recall_curve.png")
 
 
 def calculate_precision_recall(preds_gts, iou_threshold=0.5):
@@ -152,14 +183,14 @@ def calculate_average_precision(preds_gts, iou_threshold=0.5):
 
     average_precision = np.sum(interpolated_precision * recall_diff)
 
-    return average_precision
+    return average_precision, precision_values, recall_values
 
 
 def evaluate(model, dataset, labels):
     all_preds_gts = []
 
     for image, gt_boxes, gt_labels in dataset:
-        pred = model.inference(image, labels)
+        pred = model.inference(image, labels, confidence_threshold=0.05)  # Supposed to be 0.01 (as in SSD paper)
 
         # box_utils.plot_ious(gt_boxes, pred[1], image, labels=pred[0], confidences=pred[2])
 
@@ -168,13 +199,101 @@ def evaluate(model, dataset, labels):
         all_preds_gts.append((preds, gts))
 
     ap_values = []
+    precision_values = []
+    recall_values = []
     for label in labels:
         preds_gts = [([pred for pred in preds if pred[0] == label], [gt for gt in gts if gt[0] == label]) for preds, gts in all_preds_gts]
         reduced_preds_gts = [pred_gt for pred_gt in preds_gts if pred_gt != ([], [])]
 
-        average_precision = calculate_average_precision(reduced_preds_gts)
+        average_precision, precisions, recalls = calculate_average_precision(reduced_preds_gts)
         ap_values.append(average_precision)
+        precision_values.append(precisions)
+        recall_values.append(recalls)
 
     mean_average_precision = np.mean(ap_values)  # What about if there are no gts for the class?
 
+    plot_prec_rec(precision_values, recall_values, ap_values, labels)
+
     return mean_average_precision
+
+
+# def calculate_precision_recall(preds, gts, iou_threshold=0.5):
+#     if len(preds) and len(gts):
+#         ious = box_utils.calculate_iou(preds, gts)
+#         max_ious = np.max(ious, axis=-1)
+
+#         amount_pos = np.count_nonzero(max_ious >= iou_threshold)
+#     else:
+#         amount_pos = 0
+
+#     true_positives = amount_pos
+#     false_positives = len(preds) - amount_pos
+#     false_negatives = np.maximum(len(gts) - amount_pos, 0)
+
+#     return true_positives, false_positives, false_negatives
+
+
+# def calculate_average_precision(preds, confs, gts, iou_threshold=0.5):
+#     true_pos = []
+#     false_pos = []
+#     false_neg = []
+
+#     for confidence_threshold in np.arange(1, -0.1, -0.1):
+#         confident_preds = preds[confs >= confidence_threshold]
+
+#         true_positives, false_positives, false_negatives = calculate_precision_recall(confident_preds, gts, iou_threshold)
+#         true_pos.append(true_positives)
+#         false_pos.append(false_positives)
+#         false_neg.append(false_negatives)
+
+#     return true_pos, false_pos, false_neg
+
+
+# def evaluate(model, dataset, labels):
+#     true_pos = np.zeros(shape=(len(labels), 11))
+#     false_pos = np.zeros(shape=(len(labels), 11))
+#     false_neg = np.zeros(shape=(len(labels), 11))
+
+#     for image, gt_boxes, gt_labels in dataset:
+#         pred = model.inference(image, labels, confidence_threshold=0.05)
+
+#         # box_utils.plot_ious(gt_boxes, pred[1], image, labels=pred[0], confidences=pred[2])
+
+#         ap_values = []
+
+#         pred_labels = [labels.index(label) for label in pred[0]]
+#         for label in set(gt_labels + pred_labels):
+#             gts = gt_boxes[np.where(np.array(gt_labels) == label)]
+            
+#             true_positives, false_positives, false_negatives = calculate_average_precision(pred[1], pred[2], gts)
+#             true_pos[label] += true_positives
+#             false_pos[label] += false_positives
+#             false_neg[label] += false_negatives
+
+#     precision_values = []
+#     recall_values = []
+#     for label_true_pos, label_false_pos, label_false_neg in zip(true_pos, false_pos, false_neg):
+#         precision_values.append([])
+#         recall_values.append([])
+
+#         for threshold_true_pos, threshold_false_pos, threshold_false_neg in zip(label_true_pos, label_false_pos, label_false_neg):
+#             precision = threshold_true_pos / (threshold_true_pos + threshold_false_pos + 1e-10)
+#             recall = threshold_true_pos / (threshold_true_pos + threshold_false_neg + 1e-10)
+
+#             precision_values[-1].append(precision)
+#             recall_values[-1].append(recall)
+
+#         prec_vals = np.array(precision_values[-1])
+#         rec_vals = np.array(recall_values[-1])
+
+#         interpolated_precision = np.maximum.accumulate(prec_vals[::-1])[::-1]  # [np.max(precision_values[i:]) for i in range(len(precision_values))]
+#         recall_diff = np.diff(rec_vals, prepend=0)
+
+#         ap = np.sum(interpolated_precision * recall_diff)
+#         ap_values.append(ap)
+
+#     mean_average_precision = np.mean(ap_values)  # What about if there are no gts for the class?
+
+#     plot_p_r(precision_values, recall_values, ap_values, labels)
+
+#     return mean_average_precision

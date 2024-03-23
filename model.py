@@ -288,7 +288,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		except ImportError:
 			print("You need to install pydot and graphviz to plot model architecture.")
 
-	def plot_metrics(self):
+	def plot_metrics(self):  # Consider adding labels for axis and such
 		_, axs = plt.subplots(len(self.metrics), figsize=(15, 4 * len(self.metrics)))
 
 		for ax, metric in zip(axs, self.metrics):
