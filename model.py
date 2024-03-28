@@ -132,7 +132,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		class_predictions = Concatenate(axis=1, name="confidences")(head_outputs[1])
 
 		self.model = Model(inputs=[base_network.input], outputs=[class_predictions, location_predictions])
-		self.model.compile(loss={"locations": self.huber_with_mask, "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=learning_rate, momentum=momentum), loss_weights={"confidences": 1, "locations": 1})  # , metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
+		self.model.compile(loss={"locations": self.huber_with_mask, "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=learning_rate, momentum=momentum))  # , loss_weights={"confidences": 1, "locations": 1})  # , metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
 
 		self.plot_model()
 		self.model.summary()
@@ -154,23 +154,25 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		return loss
 
 	def categorical_crossentropy_with_mask(self, y_true, y_pred):
-		pos_losses = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
-		neg_losses = pos_losses
+		cce_loss = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
 
-		pos_mask = y_true[:, :, 0] != 1
+		batch_size = tf.shape(y_true)[0]
+		num_boxes = tf.shape(y_true)[1]
+
+		pos_mask = y_true[:, :, 0] != 1  # ~y_true[:, :, 0]
 		pos_multiplier = tf.cast(pos_mask, tf.float32)
-		pos_losses *= pos_multiplier
+		pos_losses = cce_loss * pos_multiplier
 
 		neg_mask = ~pos_mask
 		neg_multiplier = tf.cast(neg_mask, tf.float32)
-		neg_losses *= neg_multiplier
+		neg_losses = cce_loss * neg_multiplier
 
 		sorted_neg_losses = tf.sort(neg_losses, direction="DESCENDING")
 
 		pos_amount = tf.reduce_sum(pos_multiplier, axis=-1)
 		ks = tf.cast(pos_amount, tf.int32) * tf.constant(self.hard_neg_ratio)
 		ks_expanded = ks[:, None]  # tf.expand_dims(x, axis=-1)
-		indices = tf.range(tf.shape(sorted_neg_losses)[-1])
+		indices = tf.range(num_boxes)
 		indices_expanded = indices[None]  # tf.expand_dims(x, axis=0)
 
 		top_neg_mask = indices_expanded < ks_expanded
@@ -178,8 +180,10 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		pos_loss = tf.reduce_sum(pos_losses, axis=-1)
 		neg_loss = tf.reduce_sum(top_neg_losses, axis=-1)
+
 		loss = (pos_loss + neg_loss) / (pos_amount + 1e-10)
 		loss *= tf.cast(pos_amount != 0, tf.float32)  # Should it handle cases with 0 matches (0 gts)
+		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
 
 		return loss
 

@@ -25,11 +25,11 @@ if __name__ == "__main__":
     testing_dataset = []
     div = 4  # Don't really like the dividing workflow but kinda needed
     for i in range(div):
-        training_dataset, iter_testing_dataset = prepare_dataset("dataset", labels, input_shape, training_ratio=config.TRAINING_SPLIT, default_boxes=model.default_boxes, preprocess_function=model.preprocess_function, used_ratio=1 / div, start_index=i / div)
+        training_dataset, iter_testing_dataset = prepare_dataset("datasets/dataset100", labels, input_shape, training_ratio=config.TRAINING_SPLIT, default_boxes=model.default_boxes, preprocess_function=model.preprocess_function, used_ratio=1 / div, start_index=i / div)
         testing_dataset += iter_testing_dataset
 
         amount_iters = int(config.TRAINING_ITERATIONS / div)
-        retrain(model, training_dataset, amount_iters, config.EPOCHS, saved_ratio=0.1)
+        retrain(model, training_dataset, amount_iters, config.EPOCHS, saved_ratio=config.SAVING_RATIO)  # SAVING_RATIO doesn't work with div...
 
     model.save_model("model")
     model.plot_metrics()

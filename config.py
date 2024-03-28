@@ -13,4 +13,4 @@ VALIDATION_SPLIT = 0.2
 
 # Saving configuration
 SAVE_FOLDER_PATH = "save_folder"
-SAVING_FREQUENCY = int(TRAINING_ITERATIONS / 8)
+SAVING_RATIO = 0.1
