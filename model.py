@@ -140,21 +140,24 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "val_locations_loss": [], "val_confidences_loss": []}  # , "locations_mean_squared_error": [], "confidences_accuracy": []}
 
 	def huber_with_mask(self, y_true, y_pred):
-		pos_losses = Huber(reduction="none")(y_true, y_pred)
+		loc_loss = self.smooth_L1_loss(y_true, y_pred)
+
+		batch_size = tf.shape(y_true)[0]
 
 		pos_mask = tf.reduce_any(y_true != 0, axis=-1)
 		pos_multiplier = tf.cast(pos_mask, tf.float32)
-		pos_losses *= pos_multiplier
+		pos_losses = loc_loss * pos_multiplier
 
 		pos_amount = tf.reduce_sum(pos_multiplier, axis=-1)
 
 		loss = tf.reduce_sum(pos_losses, axis=-1) / (pos_amount + 1e-10)
 		loss *= tf.cast(pos_amount != 0, tf.float32)  # Should it handle cases with 0 matches (0 gts)
+		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
 
 		return loss
 
 	def categorical_crossentropy_with_mask(self, y_true, y_pred):
-		cce_loss = CategoricalCrossentropy(reduction="none")(y_true, y_pred)
+		cce_loss = self.log_loss(y_true, y_pred)
 
 		batch_size = tf.shape(y_true)[0]
 		num_boxes = tf.shape(y_true)[1]
@@ -186,6 +189,22 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
 
 		return loss
+	
+	def smooth_L1_loss(self, y_true, y_pred):
+		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
+
+		absolute_loss = tf.abs(y_true - y_pred)
+		square_loss = 0.5 * (y_true - y_pred)**2
+		l1_loss = tf.where(tf.less(absolute_loss, 1.0), square_loss, absolute_loss - 0.5)
+		return tf.reduce_sum(l1_loss, axis=-1)
+
+	def log_loss(self, y_true, y_pred):
+		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
+
+		y_pred = tf.maximum(y_pred, 1e-15)
+
+		log_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
+		return log_loss
 
 	"""
 	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.1):
