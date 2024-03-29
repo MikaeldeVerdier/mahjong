@@ -5,18 +5,12 @@ from train import retrain
 from evaluate import evaluate
 
 labels = [
-    "Bamboo 1", "Bamboo 2", "Bamboo 3", "Bamboo 4", "Bamboo 5", "Bamboo 6", "Bamboo 7", "Bamboo 8", "Bamboo 9",
-    "Dot 1", "Dot 2", "Dot 3", "Dot 4", "Dot 5", "Dot 6", "Dot 7", "Dot 8", "Dot 9",
-    "Character 1", "Character 2", "Character 3", "Character 4", "Character 5", "Character 6", "Character 7", "Character 8", "Character 9",
-    "East Wind", "South Wind", "West Wind", "North Wind",
-    "Red Dragon", "Green Dragon", "White Dragon",
-    "East Flower", "South Flower", "West Flower", "North Flower",
-    "East Season", "South Season", "West Season", "North Season",
-    "Back"
+    "person", "chair", "car", "dog", "bottle", "cat", "bird", "pottedplant", "sheep", "boat",
+    "aeroplane", "tvmonitor", "sofa", "bicycle", "horse", "diningtable", "motorbike", "cow", "train", "bus"
 ]
 label_amount = len(labels)
 
-input_shape = (512, 288, 3)
+input_shape = (300, 300, 3)
 
 
 if __name__ == "__main__":
