@@ -19,7 +19,7 @@ def default_boxes(k, m, aspect_ratios, f, scales=[0.1, 0.5], im_aspect_ratio=1):
 
 		return [[(i + 0.5) / f[0], (j + 0.5) / f[1], w, h] for i in range(f[0]) for j in range(f[1])]
 
-	anchor_boxes = np.array([create_boxes(scale_i, ar, f) for ar in aspect_ratios] + [create_boxes(extra_box_scale, 1 * im_aspect_ratio, f)])
+	anchor_boxes = np.array([create_boxes(scale_i, ar * im_aspect_ratio, f) for ar in aspect_ratios] + [create_boxes(extra_box_scale, 1 * im_aspect_ratio, f)])
 
 	return anchor_boxes
 
