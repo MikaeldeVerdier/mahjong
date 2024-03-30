@@ -110,7 +110,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		#
 
 		self.default_boxes = np.empty(shape=(0, 4))
-		im_aspect_ratio = self.input_shape[0] / self.input_shape[1]
+		im_aspect_ratio = self.input_shape[1] / self.input_shape[0]
 		aspect_ratios = [0.67, 1, 1.33]
 
 		head_outputs = [[], []]
