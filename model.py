@@ -114,7 +114,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		head_outputs = [[], []]
 		for k, output in enumerate(outputs, 1):
-			aspect_ratios = [0.33, 0.5, 1, 2, 3] if k not in (1, 5, 6) else [0.5, 1, 2]
+			aspect_ratios = [1, 2, 0.5, 3, 1 / 3] if k not in (1, 5, 6) else [1, 2, 0.5]
 			scales = (0.2, 0.9) if k != 1 else (0.1, 0.9)
 			defaults = box_utils.default_boxes(k, len(outputs), aspect_ratios, output.shape[1:3], scales=scales, im_aspect_ratio=im_aspect_ratio)
 			# defaults = default_boxes(k, len(outputs), aspect_ratios, output.shape[1:3])
@@ -151,8 +151,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		pos_amount = tf.reduce_sum(pos_multiplier, axis=-1)
 
-		loss = tf.reduce_sum(pos_losses, axis=-1) / (pos_amount + 1e-10)
-		loss *= tf.cast(pos_amount != 0, tf.float32)  # Should it handle cases with 0 matches (0 gts)
+		loss = tf.reduce_sum(pos_losses, axis=-1) / tf.maximum(pos_amount, 1.0)
+		# loss *= tf.cast(pos_amount != 0, tf.float32)  # Shouldn't loss be 0 when there are no positives (according to paper)
 		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
 
 		return loss
@@ -185,8 +185,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		pos_loss = tf.reduce_sum(pos_losses, axis=-1)
 		neg_loss = tf.reduce_sum(top_neg_losses, axis=-1)
 
-		loss = (pos_loss + neg_loss) / (pos_amount + 1e-10)
-		loss *= tf.cast(pos_amount != 0, tf.float32)  # Should it handle cases with 0 matches (0 gts)
+		loss = (pos_loss + neg_loss) / tf.maximum(pos_amount, 1.0)
+		# loss *= tf.cast(pos_amount != 0, tf.float32)  # Shouldn't loss be 0 when there are no positives (according to paper)
 		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
 
 		return loss
@@ -195,16 +195,17 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
 
 		absolute_loss = tf.abs(y_true - y_pred)
-		square_loss = 0.5 * (y_true - y_pred)**2
+		square_loss = 0.5 * (y_true - y_pred) ** 2
 		l1_loss = tf.where(tf.less(absolute_loss, 1.0), square_loss, absolute_loss - 0.5)
+
 		return tf.reduce_sum(l1_loss, axis=-1)
 
 	def log_loss(self, y_true, y_pred):
 		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
 
-		y_pred = tf.maximum(y_pred, 1e-15)
-
+		y_pred = tf.maximum(y_pred, 1e-10)
 		log_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
+
 		return log_loss
 
 	"""
