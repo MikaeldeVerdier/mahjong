@@ -140,6 +140,15 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "val_locations_loss": [], "val_confidences_loss": []}  # , "locations_mean_squared_error": [], "confidences_accuracy": []}
 
+	def smooth_L1_loss(self, y_true, y_pred):
+		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
+
+		absolute_loss = tf.abs(y_true - y_pred)
+		square_loss = 0.5 * (y_true - y_pred) ** 2
+		l1_loss = tf.where(tf.less(absolute_loss, 1.0), square_loss, absolute_loss - 0.5)
+
+		return tf.reduce_sum(l1_loss, axis=-1)
+
 	def huber_with_mask(self, y_true, y_pred):
 		loc_loss = self.smooth_L1_loss(y_true, y_pred)
 
@@ -149,7 +158,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		pos_multiplier = tf.cast(pos_mask, tf.float32)
 		pos_losses = loc_loss * pos_multiplier
 
-		pos_amount = tf.reduce_sum(pos_multiplier, axis=-1)
+		pos_amount = tf.reduce_sum(pos_multiplier)
 
 		loss = tf.reduce_sum(pos_losses, axis=-1) / tf.maximum(pos_amount, 1.0)
 		# loss *= tf.cast(pos_amount != 0, tf.float32)  # Shouldn't loss be 0 when there are no positives (according to paper)
@@ -157,6 +166,15 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		return loss
 
+	def log_loss(self, y_true, y_pred):
+		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
+
+		y_pred = tf.maximum(y_pred, 1e-10)
+		log_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
+
+		return log_loss
+
+	"""
 	def categorical_crossentropy_with_mask(self, y_true, y_pred):
 		cce_loss = self.log_loss(y_true, y_pred)
 
@@ -190,23 +208,43 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
 
 		return loss
-	
-	def smooth_L1_loss(self, y_true, y_pred):
-		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
+	"""
 
-		absolute_loss = tf.abs(y_true - y_pred)
-		square_loss = 0.5 * (y_true - y_pred) ** 2
-		l1_loss = tf.where(tf.less(absolute_loss, 1.0), square_loss, absolute_loss - 0.5)
+	def categorical_crossentropy_with_mask(self, y_true, y_pred):  # Don't really like this because feels weird to have a loss function not do on per-batch
+		cce_loss = self.log_loss(y_true, y_pred)
 
-		return tf.reduce_sum(l1_loss, axis=-1)
+		batch_size = tf.shape(y_true)[0]
+		num_boxes = tf.shape(y_true)[1]
 
-	def log_loss(self, y_true, y_pred):
-		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
+		pos_mask = y_true[:, :, 0] != 1  # ~y_true[:, :, 0]
+		pos_multiplier = tf.cast(pos_mask, tf.float32)
+		pos_losses = cce_loss * pos_multiplier
 
-		y_pred = tf.maximum(y_pred, 1e-10)
-		log_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
+		neg_mask = ~pos_mask  # y_true[:, :, 0]
+		neg_multiplier = tf.cast(neg_mask, tf.float32)
+		neg_losses = cce_loss * neg_multiplier
 
-		return log_loss
+		neg_losses_1d = tf.reshape(neg_losses, [-1])
+		# sorted_neg_losses = tf.sort(neg_losses_1d, direction="DESCENDING")
+		sorted_neg_indices = tf.argsort(neg_losses_1d, direction="DESCENDING")
+
+		pos_amount = tf.reduce_sum(pos_multiplier)
+		k = tf.cast(pos_amount, tf.int32) * tf.constant(self.hard_neg_ratio)
+
+		top_neg_indices = sorted_neg_indices[:k]
+		top_neg_mask = tf.scatter_nd(top_neg_indices[:, None], tf.ones_like(top_neg_indices, tf.float32), tf.shape(neg_losses_1d))
+
+		top_neg_mask_2d = tf.reshape(top_neg_mask, [batch_size, num_boxes])
+		top_neg_losses_2d = neg_losses * top_neg_mask_2d
+
+		pos_loss = tf.reduce_sum(pos_losses, axis=-1)
+		neg_loss = tf.reduce_sum(top_neg_losses_2d, axis=-1)
+
+		loss = (pos_loss + neg_loss) / tf.maximum(pos_amount, 1.0)
+		# loss *= tf.cast(pos_amount != 0, tf.float32)  # Shouldn't loss be 0 when there are no positives (according to paper)
+		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
+
+		return loss
 
 	"""
 	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.1):
