@@ -175,7 +175,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		return log_loss
 
 	"""
-	def categorical_crossentropy_with_mask(self, y_true, y_pred):
+	def categorical_crossentropy_with_mask(self, y_true, y_pred):  # Could use improvements if reintroduced
 		cce_loss = self.log_loss(y_true, y_pred)
 
 		batch_size = tf.shape(y_true)[0]
@@ -366,22 +366,22 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		offset_inp = Input(shape=(len(self.default_boxes), 4), name="locationsInput")
 
 		confs = conf_inp[:, :, 1:]
-		yx = offset_inp[:, :, :2]
-		hw = offset_inp[:, :, 2:]
+		xy = offset_inp[:, :, :2]
+		wh = offset_inp[:, :, 2:]
 
-		defaults_yx = self.default_boxes[:, :2][:, ::-1][None]
-		defaults_hw = self.default_boxes[:, 2:][:, ::-1][None]
-		tensor_def_yx = tf.constant(defaults_yx, dtype="float32")
-		tensor_def_hw = tf.constant(defaults_hw, dtype="float32")
+		defaults_xy = self.default_boxes[:, :2][None]
+		defaults_wh = self.default_boxes[:, 2:][None]
+		tensor_def_xy = tf.constant(defaults_xy, dtype="float32")
+		tensor_def_wh = tf.constant(defaults_wh, dtype="float32")
 
-		sq_variances_yx = tf.constant(sq_variances[:2])
-		sq_variances_hw = tf.constant(sq_variances[2:])
+		sq_variances_xy = tf.constant(sq_variances[:2])
+		sq_variances_wh = tf.constant(sq_variances[2:])
 
-		decoded_yx = yx * tensor_def_hw * np.sqrt(sq_variances_yx) + tensor_def_yx
-		decoded_hw = tf.exp(hw * np.sqrt(sq_variances_hw)) * tensor_def_hw
+		decoded_xy = xy * tensor_def_wh * np.sqrt(sq_variances_xy) + tensor_def_xy
+		decoded_wh = tf.exp(wh * np.sqrt(sq_variances_wh)) * tensor_def_wh
 
-		locs = Concatenate(axis=-1)([decoded_yx[:, :, ::-1], decoded_hw[:, :, ::-1]])  # Convert back to (x, y, w, h)
-		# locs = Concatenate(axis=-1)([decoded_xy + decoded_wh])
+		# locs = Concatenate(axis=-1)([decoded_yx, decoded_hw])  # Convert back to (x, y, w, h)
+		locs = Concatenate(axis=-1)([decoded_xy + decoded_wh])
 
 		decoder_model = Model(inputs=[conf_inp, offset_inp], outputs=[confs, locs], name="decoderModel")
 		decoder_model.compile()
