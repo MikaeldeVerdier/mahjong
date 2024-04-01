@@ -4,7 +4,7 @@ from matplotlib.patches import Rectangle
 
 import config
 
-# All functions asume centroids for bounding boxes (except convert_to_centroids)
+# All functions assume centroids for bounding boxes (except convert_to_centroids)
 
 def default_boxes(k, m, aspect_ratios, f, scales=(0.2, 0.9), im_aspect_ratio=1):
 	def s(k, m, s_min=scales[0], s_max=scales[1]):
@@ -83,14 +83,16 @@ def calculate_iou(boxes1, boxes2):
     return iou
 
 
-def match(boxes1, boxes2, threshold=0.5):
+def match(boxes1, boxes2, matching_threshold=0.5, neutral_threshold=0.3):
 	ious = calculate_iou(boxes1, boxes2)
 
 	matches = np.argmax(ious, axis=-1)[:, None].tolist()
-	for gt_index, default_index in zip(*np.where(ious > threshold)):  # Could probably be simplified to avoid this zip 
+	for gt_index, default_index in zip(*np.where(ious >= neutral_threshold)):  # Could probably be simplified to avoid this zip 
 		matches[gt_index].append(default_index)
 
-	return matches
+	neutrals = np.where((ious >= neutral_threshold) & (ious <= matching_threshold))[1]
+
+	return matches, neutrals
 
 
 def plot_ious(gts, boxes, img, labels=None, confidences=None, name="boxes.png", scale_coords=True):  # Should scale_coords even be an option? I never use scaled coords

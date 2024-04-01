@@ -73,7 +73,7 @@ def prepare_training(image, label_amount, default_boxes, preprocess_function, gt
     for augmented_image_arr, gt_box, labels in data:
         processed_image = preprocess_function(augmented_image_arr)
 
-        matches = box_utils.match(gt_box, default_boxes, threshold=0.6)
+        matches, neutral_indices = box_utils.match(gt_box, default_boxes)
 
         locations = np.zeros((len(default_boxes), 4))
         confidences = np.zeros((len(default_boxes), label_amount + 1))
@@ -85,6 +85,7 @@ def prepare_training(image, label_amount, default_boxes, preprocess_function, gt
             confidences[default_index, labels[gt_index] + 1] = 1
 
         confidences[np.sum(confidences, axis=-1) == 0, 0] = 1
+        confidences[neutral_indices] = np.zeros(label_amount + 1)
 
         generated_data.append([processed_image, locations, confidences])
 

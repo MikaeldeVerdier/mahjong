@@ -216,19 +216,19 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		batch_size = tf.shape(y_true)[0]
 		num_boxes = tf.shape(y_true)[1]
 
-		pos_mask = y_true[:, :, 0] != 1  # ~y_true[:, :, 0]
-		pos_multiplier = tf.cast(pos_mask, tf.float32)
-		pos_losses = cce_loss * pos_multiplier
+		pos_mask = tf.reduce_max(y_true[:, :, 1:], axis=-1)  # y_true[:, :, 0] != 1  # ~y_true[:, :, 0]
+		# pos_multiplier = tf.cast(pos_mask, tf.float32)
+		pos_losses = cce_loss * pos_mask
 
-		neg_mask = ~pos_mask  # y_true[:, :, 0]
-		neg_multiplier = tf.cast(neg_mask, tf.float32)
-		neg_losses = cce_loss * neg_multiplier
+		neg_mask = y_true[:, :, 0]
+		# neg_multiplier = tf.cast(neg_mask, tf.float32)
+		neg_losses = cce_loss * neg_mask
 
 		neg_losses_1d = tf.reshape(neg_losses, [-1])
 		# sorted_neg_losses = tf.sort(neg_losses_1d, direction="DESCENDING")
 		sorted_neg_indices = tf.argsort(neg_losses_1d, direction="DESCENDING")
 
-		pos_amount = tf.reduce_sum(pos_multiplier)
+		pos_amount = tf.reduce_sum(pos_mask)
 		k = tf.cast(pos_amount, tf.int32) * tf.constant(self.hard_neg_ratio)
 
 		top_neg_indices = sorted_neg_indices[:k]
