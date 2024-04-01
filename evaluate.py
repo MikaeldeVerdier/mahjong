@@ -109,6 +109,7 @@ def plot_prec_rec(precision_values, recall_values, ap_values, labels):
     plt.ylim(-margins, 1 + margins)
 
     plt.savefig(f"{config.SAVE_FOLDER_PATH}/precision_recall_curve.png")
+    plt.close()
 
 
 def calculate_precision_recall(preds_gts, iou_threshold=0.5):

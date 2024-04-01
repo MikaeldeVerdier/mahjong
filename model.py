@@ -360,6 +360,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 			ax.legend()
 
 		plt.savefig(f"{config.SAVE_FOLDER_PATH}/metrics.png", dpi=200)
+		plt.close()
 
 	def create_decoder_model(self, sq_variances):
 		conf_inp = Input(shape=(len(self.default_boxes), self.class_amount + 1), name="confidencesInput")
