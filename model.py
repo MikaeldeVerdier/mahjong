@@ -88,7 +88,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		x = MaxPooling2D(pool_size=(3, 3), strides=(1, 1), padding="same")(x)
 
 		# Auxiliary layers
-		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", dilation_rate=(6, 6), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", dilation_rate=(6, 6), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)  # tf.nn.atrous_conv2d (https://www.tensorflow.org/api_docs/python/tf/nn/atrous_conv2d)?
 		x = Conv2D(filters=1024, kernel_size=(1, 1), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 
@@ -382,7 +382,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		decoded_wh = tf.exp(wh * np.sqrt(sq_variances_wh)) * tensor_def_wh
 
 		# locs = Concatenate(axis=-1)([decoded_yx, decoded_hw])  # Convert back to (x, y, w, h)
-		locs = Concatenate(axis=-1)([decoded_xy + decoded_wh])
+		locs = Concatenate(axis=-1)([decoded_xy, decoded_wh])
 
 		decoder_model = Model(inputs=[conf_inp, offset_inp], outputs=[confs, locs], name="decoderModel")
 		decoder_model.compile()
