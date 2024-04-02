@@ -20,10 +20,11 @@ import config
 from l2_norm import L2Normalization
 
 class SSD_Model:  # Consider instead saving weights, and using a seperate training and inference model (to decode in model)
-	def __init__(self, input_shape, class_amount, lr=config.LEARNING_RATE, momentum=config.MOMENTUM, hard_neg_ratio=config.HARD_NEGATIVE_RATIO, load=False):
+	def __init__(self, input_shape, class_amount, lr=config.LEARNING_RATE, momentum=config.MOMENTUM, hard_neg_ratio=config.HARD_NEGATIVE_RATIO, alpha=config.ALPHA, load=False):
 		self.input_shape = input_shape
 		self.class_amount = class_amount
 		self.hard_neg_ratio = hard_neg_ratio
+		self.alpha = alpha
 
 		self.preprocess_function = preprocess_input
 
@@ -129,16 +130,26 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 			class_pred = Activation("softmax")(class_pred)
 			head_outputs[1].append(class_pred)
 
-		location_predictions = Concatenate(axis=1, name="locations")(head_outputs[0])
-		class_predictions = Concatenate(axis=1, name="confidences")(head_outputs[1])
+		location_predictions = Concatenate(axis=1)(head_outputs[0])
+		class_predictions = Concatenate(axis=1)(head_outputs[1])
 
-		self.model = Model(inputs=[base_network.input], outputs=[class_predictions, location_predictions])
-		self.model.compile(loss={"locations": self.huber_with_mask, "confidences": self.categorical_crossentropy_with_mask}, optimizer=SGD(learning_rate=learning_rate, momentum=momentum))  # , loss_weights={"confidences": 1, "locations": 1})  # , metrics={"locations": MeanSquaredError(), "confidences": Accuracy()})
+		output = Concatenate(axis=-1)([class_predictions, location_predictions])
+
+		self.model = Model(inputs=[base_network.input], outputs=[output])
+		self.model.compile(loss=self.ssd_loss, optimizer=SGD(learning_rate=learning_rate, momentum=momentum))
 
 		self.plot_model()
 		self.model.summary()
 
-		self.metrics = {"loss": [], "locations_loss": [], "confidences_loss": [], "val_locations_loss": [], "val_confidences_loss": []}  # , "locations_mean_squared_error": [], "confidences_accuracy": []}
+		self.metrics = {"loss": [], "val_loss": []}  # , "locations_mean_squared_error": [], "confidences_accuracy": []}
+
+	def log_loss(self, y_true, y_pred):
+		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
+
+		y_pred = tf.maximum(y_pred, 1e-10)
+		log_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
+
+		return log_loss
 
 	def smooth_L1_loss(self, y_true, y_pred):
 		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
@@ -149,98 +160,41 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		return tf.reduce_sum(l1_loss, axis=-1)
 
-	def huber_with_mask(self, y_true, y_pred):
-		loc_loss = self.smooth_L1_loss(y_true, y_pred)
+	def ssd_loss(self, y_true, y_pred):
+		y_true = tf.cast(y_true, tf.float32)
+		y_pred = tf.cast(y_pred, tf.float32)
 
-		batch_size = tf.shape(y_true)[0]
-
-		pos_mask = tf.reduce_any(y_true != 0, axis=-1)
-		pos_multiplier = tf.cast(pos_mask, tf.float32)
-		pos_losses = loc_loss * pos_multiplier
-
-		pos_amount = tf.reduce_sum(pos_multiplier)
-
-		loss = tf.reduce_sum(pos_losses, axis=-1) / tf.maximum(pos_amount, 1.0)
-		# loss *= tf.cast(pos_amount != 0, tf.float32)  # Shouldn't loss be 0 when there are no positives (according to paper)
-		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
-
-		return loss
-
-	def log_loss(self, y_true, y_pred):
-		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
-
-		y_pred = tf.maximum(y_pred, 1e-10)
-		log_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
-
-		return log_loss
-
-	"""
-	def categorical_crossentropy_with_mask(self, y_true, y_pred):  # Could use improvements if reintroduced
-		cce_loss = self.log_loss(y_true, y_pred)
+		cls_loss = self.log_loss(y_true[:, :, :-4], y_pred[:, :, :-4])
+		loc_loss = self.smooth_L1_loss(y_true[:, :, -4:], y_pred[:, :, -4:])
 
 		batch_size = tf.shape(y_true)[0]
 		num_boxes = tf.shape(y_true)[1]
 
-		pos_mask = y_true[:, :, 0] != 1  # ~y_true[:, :, 0]
-		pos_multiplier = tf.cast(pos_mask, tf.float32)
-		pos_losses = cce_loss * pos_multiplier
-
-		neg_mask = ~pos_mask  # y_true[:, :, 0]
-		neg_multiplier = tf.cast(neg_mask, tf.float32)
-		neg_losses = cce_loss * neg_multiplier
-
-		sorted_neg_losses = tf.sort(neg_losses, direction="DESCENDING")
-
-		pos_amount = tf.reduce_sum(pos_multiplier, axis=-1)
-		ks = tf.cast(pos_amount, tf.int32) * tf.constant(self.hard_neg_ratio)
-		ks_expanded = ks[:, None]  # tf.expand_dims(x, axis=-1)
-		indices = tf.range(num_boxes)
-		indices_expanded = indices[None]  # tf.expand_dims(x, axis=0)
-
-		top_neg_mask = indices_expanded < ks_expanded
-		top_neg_losses = sorted_neg_losses * tf.cast(top_neg_mask, tf.float32)
-
-		pos_loss = tf.reduce_sum(pos_losses, axis=-1)
-		neg_loss = tf.reduce_sum(top_neg_losses, axis=-1)
-
-		loss = (pos_loss + neg_loss) / tf.maximum(pos_amount, 1.0)
-		# loss *= tf.cast(pos_amount != 0, tf.float32)  # Shouldn't loss be 0 when there are no positives (according to paper)
-		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
-
-		return loss
-	"""
-
-	def categorical_crossentropy_with_mask(self, y_true, y_pred):  # Don't really like this because feels weird to have a loss function not do on per-batch
-		cce_loss = self.log_loss(y_true, y_pred)
-
-		batch_size = tf.shape(y_true)[0]
-		num_boxes = tf.shape(y_true)[1]
-
-		pos_mask = tf.reduce_max(y_true[:, :, 1:], axis=-1)  # y_true[:, :, 0] != 1  # ~y_true[:, :, 0]
-		# pos_multiplier = tf.cast(pos_mask, tf.float32)
-		pos_losses = cce_loss * pos_mask
+		pos_mask = tf.reduce_max(y_true[:, :, 1:-4], axis=-1)
+		cls_pos_losses = cls_loss * pos_mask
 
 		neg_mask = y_true[:, :, 0]
-		# neg_multiplier = tf.cast(neg_mask, tf.float32)
-		neg_losses = cce_loss * neg_mask
+		cls_neg_losses = cls_loss * neg_mask
 
-		neg_losses_1d = tf.reshape(neg_losses, [-1])
-		# sorted_neg_losses = tf.sort(neg_losses_1d, direction="DESCENDING")
-		sorted_neg_indices = tf.argsort(neg_losses_1d, direction="DESCENDING")
+		cls_neg_losses_1d = tf.reshape(cls_neg_losses, [-1])
+		cls_sorted_neg_indices = tf.argsort(cls_neg_losses_1d, direction="DESCENDING")
 
 		pos_amount = tf.reduce_sum(pos_mask)
 		k = tf.cast(pos_amount, tf.int32) * tf.constant(self.hard_neg_ratio)
 
-		top_neg_indices = sorted_neg_indices[:k]
-		top_neg_mask = tf.scatter_nd(top_neg_indices[:, None], tf.ones_like(top_neg_indices, tf.float32), tf.shape(neg_losses_1d))
+		cls_top_neg_indices = cls_sorted_neg_indices[:k]
+		cls_top_neg_mask = tf.scatter_nd(cls_top_neg_indices[:, None], tf.ones_like(cls_top_neg_indices, tf.float32), tf.shape(cls_neg_losses_1d))
 
-		top_neg_mask_2d = tf.reshape(top_neg_mask, [batch_size, num_boxes])
-		top_neg_losses_2d = neg_losses * top_neg_mask_2d
+		cls_top_neg_mask_2d = tf.reshape(cls_top_neg_mask, [batch_size, num_boxes])
+		cls_top_neg_losses_2d = cls_neg_losses * cls_top_neg_mask_2d
 
-		pos_loss = tf.reduce_sum(pos_losses, axis=-1)
-		neg_loss = tf.reduce_sum(top_neg_losses_2d, axis=-1)
+		cls_pos_loss = tf.reduce_sum(cls_pos_losses, axis=-1)
+		cls_neg_loss = tf.reduce_sum(cls_top_neg_losses_2d, axis=-1)
 
-		loss = (pos_loss + neg_loss) / tf.maximum(pos_amount, 1.0)
+		loc_pos_losses = loc_loss * pos_mask
+		loc_loss = tf.reduce_sum(loc_pos_losses, axis=-1)
+
+		loss = (cls_pos_loss + cls_neg_loss + tf.constant(self.alpha, dtype=tf.float32) * loc_loss) / tf.maximum(pos_amount, 1.0)
 		# loss *= tf.cast(pos_amount != 0, tf.float32)  # Shouldn't loss be 0 when there are no positives (according to paper)
 		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
 
@@ -336,7 +290,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 			f.write(json.dumps(self.default_boxes.tolist()))
 
 	def load_model(self, name):
-		self.model = load_model(f"{config.SAVE_FOLDER_PATH}/{name}", custom_objects={"huber_with_mask": self.huber_with_mask, "categorical_crossentropy_with_mask": self.categorical_crossentropy_with_mask})
+		self.model = load_model(f"{config.SAVE_FOLDER_PATH}/{name}", custom_objects={"ssd_loss": self.ssd_loss})
 
 		with open(f"{config.SAVE_FOLDER_PATH}/save.json", "r") as f:
 			self.metrics = json.loads(f.read())
@@ -393,7 +347,9 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		inp = Input(shape=self.input_shape, name="image")
 		x = self.preprocess_function(inp)
 
-		class_predictions, location_predictions = self.model(x)
+		preds = self.model(x)
+		class_predictions = preds[:, :, :-4]
+		location_predictions = preds[:, :, -4:]
 
 		decoder_model = self.create_decoder_model(sq_variances)
 		confs, locs = decoder_model([class_predictions, location_predictions])
@@ -414,7 +370,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		output_sizes = [self.class_amount, 4]
 		for i in range(2):
 			old_name = spec.description.output[i].name
-			ct.utils.rename_feature(spec, old_name, new_names[i])  # Why?
+			ct.utils.rename_feature(spec, old_name, new_names[i])
 			spec.description.output[i].type.multiArrayType.shape.extend([len(self.default_boxes), output_sizes[i]])
 			spec.description.output[i].type.multiArrayType.dataType = ct.proto.FeatureTypes_pb2.ArrayFeatureType.DOUBLE
 

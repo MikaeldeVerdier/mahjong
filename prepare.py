@@ -86,7 +86,8 @@ def prepare_training(image, label_amount, default_boxes, preprocess_function, gt
         confidences[np.sum(confidences, axis=-1) == 0, 0] = 1
         confidences[neutral_indices] = np.zeros(label_amount + 1)
 
-        generated_data.append([processed_image, locations, confidences])
+        gt = np.concatenate([confidences, locations], axis=-1)
+        generated_data.append([processed_image, gt])
 
     return generated_data
 
