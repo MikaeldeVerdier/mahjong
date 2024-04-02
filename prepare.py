@@ -19,8 +19,7 @@ def preprocess_image(path, input_shape):
 
 def augment_data(image, boxes, labels):
     coords = box_utils.convert_to_coordinates(boxes)
-    coords = np.maximum(coords, 0)
-    coords = np.minimum(coords, 1)  # I don't really like this
+    coords = np.clip(coords, 0, 1)  # Is weird that only augmented images have clipped boxed...
 
     h, w = image.shape[:-1]
     transform = A.Compose([
