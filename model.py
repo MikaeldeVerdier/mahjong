@@ -332,8 +332,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		sq_variances_xy = tf.constant(sq_variances[:2])
 		sq_variances_wh = tf.constant(sq_variances[2:])
 
-		decoded_xy = xy * tensor_def_wh * np.sqrt(sq_variances_xy) + tensor_def_xy
-		decoded_wh = tf.exp(wh * np.sqrt(sq_variances_wh)) * tensor_def_wh
+		decoded_xy = xy * tensor_def_wh * sq_variances_xy + tensor_def_xy
+		decoded_wh = tf.exp(wh * sq_variances_wh) * tensor_def_wh
 
 		# locs = Concatenate(axis=-1)([decoded_yx, decoded_hw])  # Convert back to (x, y, w, h)
 		locs = Concatenate(axis=-1)([decoded_xy, decoded_wh])
