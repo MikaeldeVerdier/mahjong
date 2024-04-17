@@ -316,7 +316,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		plt.savefig(f"{config.SAVE_FOLDER_PATH}/metrics.png", dpi=200)
 		plt.close()
 
-	def create_decoder_model(self, sq_variances):
+	def create_decoder_model(self, variances):
 		conf_inp = Input(shape=(len(self.default_boxes), self.class_amount + 1), name="confidencesInput")
 		offset_inp = Input(shape=(len(self.default_boxes), 4), name="locationsInput")
 
@@ -329,11 +329,11 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		tensor_def_xy = tf.constant(defaults_xy, dtype="float32")
 		tensor_def_wh = tf.constant(defaults_wh, dtype="float32")
 
-		sq_variances_xy = tf.constant(sq_variances[:2])
-		sq_variances_wh = tf.constant(sq_variances[2:])
+		variances_xy = tf.constant(variances[:2])
+		variances_wh = tf.constant(variances[2:])
 
-		decoded_xy = xy * tensor_def_wh * sq_variances_xy + tensor_def_xy
-		decoded_wh = tf.exp(wh * sq_variances_wh) * tensor_def_wh
+		decoded_xy = xy * tensor_def_wh * variances_xy + tensor_def_xy
+		decoded_wh = tf.exp(wh * variances_wh) * tensor_def_wh
 
 		# locs = Concatenate(axis=-1)([decoded_yx, decoded_hw])  # Convert back to (x, y, w, h)
 		locs = Concatenate(axis=-1)([decoded_xy, decoded_wh])
@@ -343,7 +343,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		return decoder_model
 
-	def create_decoded_tfmodel(self, sq_variances):  # Not actually necessary, could just add them together in pipeline
+	def create_decoded_tfmodel(self, variances):  # Not actually necessary, could just add them together in pipeline
 		inp = Input(shape=self.input_shape, name="image")
 		x = self.preprocess_function(inp)
 
@@ -351,7 +351,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		class_predictions = preds[:, :, :-4]
 		location_predictions = preds[:, :, -4:]
 
-		decoder_model = self.create_decoder_model(sq_variances)
+		decoder_model = self.create_decoder_model(variances)
 		confs, locs = decoder_model([class_predictions, location_predictions])
 
 		decoded_model = Model(inputs=[inp], outputs=[confs, locs])
@@ -359,8 +359,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		return decoded_model
 
-	def create_base_model(self, sq_variances):  # A bit weird to have partial generality. Should really probably be a staticmethod (same for all of these)
-		decoded_model = self.create_decoded_tfmodel(sq_variances)
+	def create_base_model(self, variances):  # A bit weird to have partial generality. Should really probably be a staticmethod (same for all of these)
+		decoded_model = self.create_decoded_tfmodel(variances)
 
 		mlmodel = ct.convert(decoded_model, inputs=[ct.ImageType("image", shape=(1,) + self.input_shape)])
 
@@ -556,13 +556,13 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		return pipeline_model
 
-	def convert_to_mlmodel(self, labels, iou_threshold=0.45, conf_threshold=0.25, sq_variances=config.SQ_VARIANCES):
+	def convert_to_mlmodel(self, labels, iou_threshold=0.45, conf_threshold=0.25, variances=config.VARIANCES):
 		self.iou_threshold = iou_threshold
 		self.conf_threshold = conf_threshold
 
 		# mlmodel = self.create_base_model()
 		# decoder_model = self.build_decoder()
-		mlmodel = self.create_base_model(sq_variances)
+		mlmodel = self.create_base_model(variances)
 		nms_model = self.create_nms_model(mlmodel, iou_threshold, conf_threshold, labels)
 		
 		self.mlmodel = self.create_pipeline([mlmodel, nms_model])

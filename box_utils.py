@@ -134,14 +134,14 @@ def plot_ious(gts, boxes, img, labels=None, confidences=None, name="boxes.png", 
 	plt.close()
 
 
-def calculate_offset(gt, boxes, sq_variances):
+def calculate_offset(gt, boxes, variances):
 	cx = (gt[0] - boxes[:, 0]) / boxes[:, 2]
 	cy = (gt[1] - boxes[:, 1]) / boxes[:, 3]
 	w = np.log(gt[2] / boxes[:, 2])
 	h = np.log(gt[3] / boxes[:, 3])
 
 	offset = np.moveaxis([cx, cy, w, h], 0, -1)
-	offset /= sq_variances
+	offset /= variances
 
 	return offset
 

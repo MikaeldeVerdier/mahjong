@@ -89,6 +89,95 @@ import config
 #     return mean_average_precision
 
 
+# def calculate_precision_recall(preds, gts, iou_threshold=0.5):  # Unfinished
+#     confusion = [np.array([]) for _ in range(3)]
+
+#     # for pred_box in pred:
+#     #     ious = box_utils.calculate_iou(np.array([pred_box[1]]), np.array([g[1] for g in gt]))
+#     #     max_iou = np.max(ious)
+
+#     #     if max_iou >= iou_threshold:
+#     #         true_positives += 1
+#     #     else:
+#     #         false_positives += 1
+
+#     # false_negatives = max(len(gt) - true_positives, 0)
+#     for pred in preds:
+#         index = pred[3]
+
+#         gt = gts[index]
+#         pred = pred[1]
+
+#         if len(gt):
+#             ious = box_utils.calculate_iou(gt, pred[None])
+#             max_ious = np.max(ious, axis=-1)
+
+#             amount_pos = np.count_nonzero(max_ious >= iou_threshold)
+
+#             if amount_pos:
+#                 gts[index][np.argmax(ious, axis=-1)[0]] = [-1, -1, -1, -1]
+#         else:
+#             amount_pos = 0
+
+#         confusion[0] = np.append(confusion[0], amount_pos)
+#         confusion[1] = np.append(confusion[1], 1 - amount_pos)
+#         confusion[2] = np.append(confusion[2], np.maximum(len(gt) - amount_pos, 0))
+
+#     return confusion
+
+
+# def calculate_average_precision(preds, gts, iou_threshold=0.5):
+#     sorted_preds = sorted(preds, key=lambda x: -x[2])
+#     confusion = calculate_precision_recall(sorted_preds, gts, iou_threshold)
+
+#     precision = confusion[0] / (confusion[0] + confusion[1] + 1e-10)
+#     recall = confusion[0] / (confusion[0] + confusion[2] + 1e-10)
+
+#     precision_values = np.array(precision)
+#     recall_values = np.array(recall)
+
+#     amount_sample_points = 11
+#     ap = 0
+#     for recall_threshold in np.arange(0, 1.1, 1.1 / amount_sample_points):
+#         prec_rec = precision_values[recall_values >= recall_threshold]
+#         if len(prec_rec):
+#             ap += np.max(prec_rec)
+#     ap /= amount_sample_points
+
+#     return ap, precision_values, recall_values
+
+
+# def evaluate(model, dataset, labels):
+#     all_preds_gts = []
+
+#     for image, gt_boxes, gt_labels in dataset:
+#         pred = model.inference(image, labels, confidence_threshold=0.05)  # Supposed to be 0.01 (as in SSD paper)
+
+#         # box_utils.plot_ious(gt_boxes, pred[1], image, labels=pred[0], confidences=pred[2])
+
+#         preds = list(zip(*pred))
+#         gts = list(zip(*[np.array(labels)[gt_labels], gt_boxes]))
+#         all_preds_gts.append((preds, gts))
+
+#     ap_values = []
+#     precision_values = []
+#     recall_values = []
+#     for label in labels:
+#         preds = [pred + (i,) for i, (preds, _) in enumerate(all_preds_gts) for pred in preds if pred[0] == label]
+#         gts = [np.array([gt[1] for gt in gts if gt[0] == label]) for _, gts in all_preds_gts]
+
+#         average_precision, precisions, recalls = calculate_average_precision(preds, gts)
+#         ap_values.append(average_precision)
+#         precision_values.append(precisions)
+#         recall_values.append(recalls)
+
+#     mean_average_precision = np.mean(ap_values)  # What about if there are no gts for the class?
+
+#     plot_prec_rec(precision_values, recall_values, ap_values, labels)
+
+#     return mean_average_precision
+
+
 def plot_prec_rec(precision_values, recall_values, ap_values, labels):
     _, ax = plt.subplots(figsize=(10, 10))
 
@@ -102,7 +191,7 @@ def plot_prec_rec(precision_values, recall_values, ap_values, labels):
     plt.title(f"Precision-Recall Curve ({len(labels)} classes, mAP: {(mAP * 100):.2f}%)")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    # plt.grid()
+    plt.grid()
 
     margins = 0.05
     plt.xlim(-margins, 1 + margins)
