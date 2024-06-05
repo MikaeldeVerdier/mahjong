@@ -39,6 +39,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		input_layer = Input(shape=self.input_shape, name="input")
 
+		# x = self.preprocess_function(input_layer)
+
 		conv1_1 = Conv2D(64, (3, 3), activation="relu", padding="same", name="block1_conv1", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(input_layer)
 		conv1_2 = Conv2D(64, (3, 3), activation="relu", padding="same", name="block1_conv2", kernel_initializer=kernel_initializer, kernel_regularizer=kernel_regularizer)(conv1_1)
 		pool1 = MaxPooling2D((2, 2), strides=(2, 2), name="block1_pool", padding="same")(conv1_2)

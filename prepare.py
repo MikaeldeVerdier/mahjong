@@ -1,9 +1,10 @@
 import os
 import numpy as np
 from PIL import Image
-import albumentations as A
+# import albumentations as A
 
 import box_utils
+import augmentation
 import files
 import config
 
@@ -18,41 +19,37 @@ def preprocess_image(path, input_shape):
 
 
 def augment_data(image, boxes, labels):
-    coords = box_utils.convert_to_coordinates(boxes)
-    coords = np.clip(coords, 0, 1)  # Is weird that only augmented images have clipped boxed...
+    coords = box_utils.scale_box(box_utils.convert_to_coordinates(boxes), image.shape[:-1])
 
-    h, w = image.shape[:-1]
-    transform = A.Compose([
-        # A.OneOf([
-        #     A.Blur(p=0.25),
-        #     A.MotionBlur(p=0.25),
-        #     A.PixelDropout(p=0.25)
-        # ]),
-        A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=0.5),
-        A.RandomBrightnessContrast(p=0.5),
-        A.HueSaturationValue(p=0.5),
-        A.ISONoise(p=0.5),
-        A.RandomSizedBBoxSafeCrop(height=h, width=w, p=0.5)
-        # A.OneOf([
-        #     A.Affine(p=0.25),
-        #     A.Perspective(p=0.25)
-        # ])
-    ], bbox_params=A.BboxParams(format="albumentations", min_visibility=0.4, label_fields=["class_labels"]))
+    result = [np.float32(image[:, :, ::-1]), coords, labels]
+    augmentations = [
+        augmentation.random_contrast,
+        augmentation.random_contrast,
+        augmentation.random_hue,
+        augmentation.random_lighting_noise,
+        augmentation.random_saturation,
+        augmentation.random_vertical_flip,
+        augmentation.random_horizontal_flip,
+        augmentation.random_expand,
+        augmentation.random_crop
+    ]
 
-    result = transform(image=image, bboxes=coords, class_labels=labels)
+    for augment in augmentations:
+        result = augment(*result)
 
-    transformed_img = result["image"]
-    transformed_boxes = np.array(result["bboxes"])
-    transformed_labels = result["class_labels"]
+    if result[0].shape != (300, 300, 3):
+        resize_func = augmentation.resize_to_fixed_size(image.shape[1], image.shape[0])
+        result = resize_func(*result)
+
+    transformed_img, transformed_boxes, transformed_labels = result
 
     if transformed_boxes.shape == (0,):
-        transformed_boxes = np.empty_like(boxes)
+        transformed_boxes = np.empty(shape=(0, 4))
     
     centroids = box_utils.convert_to_centroids(transformed_boxes)
     data = [transformed_img, centroids, transformed_labels]
 
-    # box_utils.plot_ious(centroids, np.empty_like(transformed_boxes), Image.fromarray(transformed_img, mode="RGB"))
+    # box_utils.plot_ious(centroids, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(transformed_img[:, :, ::-1]), mode="RGB"), scale_coords=False)
 
     return data
 
