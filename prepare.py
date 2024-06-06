@@ -37,7 +37,7 @@ def augment_data(image, boxes, labels):
     for augment in augmentations:
         result = augment(*result)
 
-    if result[0].shape != (300, 300, 3):
+    if result[0].shape != (image.shape[1], image.shape[0], 3):
         resize_func = augmentation.resize_to_fixed_size(image.shape[1], image.shape[0])
         result = resize_func(*result)
 
@@ -46,7 +46,7 @@ def augment_data(image, boxes, labels):
     if transformed_boxes.shape == (0,):
         transformed_boxes = np.empty(shape=(0, 4))
     
-    centroids = box_utils.convert_to_centroids(transformed_boxes)
+    centroids = box_utils.convert_to_centroids(box_utils.scale_box(transformed_boxes, (1 / image.shape[0], 1 / image.shape[1])))
     data = [transformed_img, centroids, transformed_labels]
 
     # box_utils.plot_ious(centroids, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(transformed_img[:, :, ::-1]), mode="RGB"), scale_coords=False)
