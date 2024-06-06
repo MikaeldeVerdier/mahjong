@@ -10,33 +10,20 @@ import config
 
 def preprocess_image(path, input_shape):
     img = Image.open(path)
-    img_size = img.size
 
     img = img.resize(input_shape[:-1][::-1])
     img = img.convert("RGB")
 
-    return img, img_size
+    return img
 
 
-def augment_data(image, boxes, labels):
+def augment_data(image, boxes, labels, augmentations):
     bgr_image = np.float32(image[:, :, ::-1])  # Equivalent to cv2.cvtColor(image, cv2.RGB2BGR)
     coords = box_utils.scale_box(box_utils.convert_to_coordinates(boxes), image.shape[:-1])
 
     result = [bgr_image, coords, labels]
-    augmentations = [
-        augmentation.random_contrast,
-        augmentation.random_contrast,
-        augmentation.random_hue,
-        augmentation.random_lighting_noise,
-        augmentation.random_saturation,
-        augmentation.random_vertical_flip,
-        augmentation.random_horizontal_flip,
-        augmentation.random_expand,
-        augmentation.random_crop
-    ]
-
     for augment in augmentations:
-        result = augment(*result)
+        result = augment(*result, p=1)
 
     if result[0].shape != image.shape:
         resize_func = augmentation.resize_to_fixed_size(image.shape[0], image.shape[1])
@@ -56,55 +43,88 @@ def augment_data(image, boxes, labels):
     return data
 
 
-def prepare_training(image, label_amount, default_boxes, preprocess_function, gt_boxes, label_indices):
+def custom_cache(max_size=1):
+    def decorator(func):
+        cache = {}
+
+        def cache_func(*args):
+            key = ""
+            for arg in args:
+                if isinstance(arg, np.ndarray):
+                    key += str(hash(tuple(arg.flatten())))
+                else:
+                    if arg.__hash__:
+                        key += str(hash(arg))
+                    else:
+                        continue
+
+            if key in cache:
+                return cache[key]
+            else:
+                val = func(*args)
+                cache[key] = val
+
+                if len(cache) > max_size:
+                    cache.popitem()
+
+                return val
+
+        return cache_func
+
+    return decorator
+
+
+@custom_cache()
+def prepare_training(image_path, gt_boxes, label_indices, augmentations, input_shape, label_amount, default_boxes, preprocess_function):
+    image = preprocess_image(image_path, input_shape)
     image_arr = np.array(image)
-    data = [[image_arr, gt_boxes, label_indices]]
-    for _ in range(config.AUGMENTATION_AMOUNT):
-        new_data = augment_data(image_arr, gt_boxes, label_indices)
 
-        if not any([np.array_equal(new_data[0], entry[0]) for entry in data]):
-            data.append(new_data)
-    
-    # [augment_data(image_arr, gt_boxes, label_indices) for _ in range(config.AUGMENTATION_AMOUNT)]
+    augmented_image_arr, gt_box, labels = augment_data(image_arr, gt_boxes, label_indices, augmentations)
 
-    generated_data = []
-    for augmented_image_arr, gt_box, labels in data:
-        # box_utils.plot_ious(gt_box, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(augmented_image_arr), mode="RGB"))
+    # box_utils.plot_ious(gt_box, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(augmented_image_arr), mode="RGB"))
+    processed_image = preprocess_function(augmented_image_arr)
 
-        processed_image = preprocess_function(augmented_image_arr)
+    matches, neutral_indices = box_utils.match(gt_box, default_boxes)
 
-        matches, neutral_indices = box_utils.match(gt_box, default_boxes)
+    locations = np.zeros((len(default_boxes), 4))
+    confidences = np.zeros((len(default_boxes), label_amount + 1))
 
-        locations = np.zeros((len(default_boxes), 4))
-        confidences = np.zeros((len(default_boxes), label_amount + 1))
+    for gt_index, default_index in enumerate(matches):
+        offset = box_utils.calculate_offset(gt_box[gt_index], default_boxes[default_index], variances=config.VARIANCES)
 
-        for gt_index, default_index in enumerate(matches):
-            offset = box_utils.calculate_offset(gt_box[gt_index], default_boxes[default_index], variances=config.VARIANCES)
+        locations[default_index] = offset
+        confidences[default_index, labels[gt_index] + 1] = 1
 
-            locations[default_index] = offset
-            confidences[default_index, labels[gt_index] + 1] = 1
+    confidences[np.sum(confidences, axis=-1) == 0, 0] = 1
+    confidences[neutral_indices] = np.zeros(label_amount + 1)
 
-        confidences[np.sum(confidences, axis=-1) == 0, 0] = 1
-        confidences[neutral_indices] = np.zeros(label_amount + 1)
-
-        gt = np.concatenate([confidences, locations], axis=-1)
-        generated_data.append([processed_image, gt])
+    gt = np.concatenate([confidences, locations], axis=-1)
+    generated_data = [processed_image, gt]
 
     return generated_data
 
 
-def prepare_dataset(path, labels, input_shape, training_ratio=0, default_boxes=None, preprocess_function=None, used_ratio=1, start_index=0):
+def prepare_dataset(path, labels, training_ratio=0):
+    augmentations = [
+        augmentation.random_contrast,
+        augmentation.random_contrast,
+        augmentation.random_hue,
+        augmentation.random_lighting_noise,
+        augmentation.random_saturation,
+        augmentation.random_vertical_flip,
+        augmentation.random_horizontal_flip,
+        augmentation.random_expand,
+        augmentation.random_crop
+    ]
+    probabilities = [0.5] * len(augmentations)
+
     dataset = [[], []]
     annotations = files.load(path)
-
-    starting_index = int(len(annotations) * start_index)
-    amount_used = int(len(annotations) * used_ratio)
-    annotations = annotations[starting_index: starting_index + amount_used]
 
     amount_training = int(len(annotations) * training_ratio)
     for i, annotation in enumerate(annotations):
         img_path = os.path.join(path, annotation["image"])
-        image, image_size = preprocess_image(img_path, input_shape)
+        image_size = Image.open(img_path).size
 
         locations = np.empty(shape=(0, 4))
         confidences = []
@@ -118,8 +138,14 @@ def prepare_dataset(path, labels, input_shape, training_ratio=0, default_boxes=N
             confidences.append(labels.index(label["label"]))
 
         if i < amount_training:
-            dataset[0] += prepare_training(image, len(labels), default_boxes, preprocess_function, locations, confidences)
+            for _ in range(config.AUGMENTATION_AMOUNT):
+                mask = np.random.rand(len(augmentations)) < probabilities
+                chosen_augmentations = [augmentation_func for augmentation_func, selected in zip(augmentations, mask) if selected]
+                new_data = [img_path, locations, confidences, chosen_augmentations]
+
+                if not any([np.array_equal(new_data[0], entry[0]) for entry in dataset[0]]):
+                    dataset[0].append(new_data)
         else:
-            dataset[1].append([image, locations, confidences])
+            dataset[1].append([img_path, locations, confidences])
 
     return dataset
