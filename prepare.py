@@ -19,9 +19,10 @@ def preprocess_image(path, input_shape):
 
 
 def augment_data(image, boxes, labels):
+    bgr_image = np.float32(image[:, :, ::-1])  # Equivalent to cv2.cvtColor(image, cv2.RGB2BGR)
     coords = box_utils.scale_box(box_utils.convert_to_coordinates(boxes), image.shape[:-1])
 
-    result = [np.float32(image[:, :, ::-1]), coords, labels]
+    result = [bgr_image, coords, labels]
     augmentations = [
         augmentation.random_contrast,
         augmentation.random_contrast,
@@ -37,8 +38,8 @@ def augment_data(image, boxes, labels):
     for augment in augmentations:
         result = augment(*result)
 
-    if result[0].shape != (image.shape[1], image.shape[0], 3):
-        resize_func = augmentation.resize_to_fixed_size(image.shape[1], image.shape[0])
+    if result[0].shape != image.shape:
+        resize_func = augmentation.resize_to_fixed_size(image.shape[0], image.shape[1])
         result = resize_func(*result)
 
     transformed_img, transformed_boxes, transformed_labels = result
@@ -46,8 +47,9 @@ def augment_data(image, boxes, labels):
     if transformed_boxes.shape == (0,):
         transformed_boxes = np.empty(shape=(0, 4))
     
+    rgb_image = transformed_img[:, :, ::-1]
     centroids = box_utils.convert_to_centroids(box_utils.scale_box(transformed_boxes, (1 / image.shape[0], 1 / image.shape[1])))
-    data = [transformed_img, centroids, transformed_labels]
+    data = [rgb_image, centroids, transformed_labels]
 
     # box_utils.plot_ious(centroids, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(transformed_img[:, :, ::-1]), mode="RGB"), scale_coords=False)
 
@@ -67,6 +69,8 @@ def prepare_training(image, label_amount, default_boxes, preprocess_function, gt
 
     generated_data = []
     for augmented_image_arr, gt_box, labels in data:
+        # box_utils.plot_ious(gt_box, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(augmented_image_arr), mode="RGB"))
+
         processed_image = preprocess_function(augmented_image_arr)
 
         matches, neutral_indices = box_utils.match(gt_box, default_boxes)
