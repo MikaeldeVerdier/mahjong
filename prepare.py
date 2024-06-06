@@ -43,38 +43,6 @@ def augment_data(image, boxes, labels, augmentations):
     return data
 
 
-def custom_cache(max_size=1):
-    def decorator(func):
-        cache = {}
-
-        def cache_func(*args):
-            key = ""
-            for arg in args:
-                if isinstance(arg, np.ndarray):
-                    key += str(hash(tuple(arg.flatten())))
-                else:
-                    if arg.__hash__:
-                        key += str(hash(arg))
-                    else:
-                        continue
-
-            if key in cache:
-                return cache[key]
-            else:
-                val = func(*args)
-                cache[key] = val
-
-                if len(cache) > max_size:
-                    cache.popitem()
-
-                return val
-
-        return cache_func
-
-    return decorator
-
-
-@custom_cache()
 def prepare_training(image_path, gt_boxes, label_indices, augmentations, input_shape, label_amount, default_boxes, preprocess_function):
     image = preprocess_image(image_path, input_shape)
     image_arr = np.array(image)
@@ -138,13 +106,18 @@ def prepare_dataset(path, labels, training_ratio=0):
             confidences.append(labels.index(label["label"]))
 
         if i < amount_training:
+            all_chosen_augmentations = []
             for _ in range(config.AUGMENTATION_AMOUNT):
                 mask = np.random.rand(len(augmentations)) < probabilities
                 chosen_augmentations = [augmentation_func for augmentation_func, selected in zip(augmentations, mask) if selected]
-                new_data = [img_path, locations, confidences, chosen_augmentations]
 
-                if not any([np.array_equal(new_data[0], entry[0]) for entry in dataset[0]]):
+                if chosen_augmentations in all_chosen_augmentations:
+                    continue
+                else:
+                    new_data = [img_path, locations, confidences, chosen_augmentations]
                     dataset[0].append(new_data)
+
+                    all_chosen_augmentations.append(chosen_augmentations)
         else:
             dataset[1].append([img_path, locations, confidences])
 
