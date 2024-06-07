@@ -7,12 +7,16 @@ import box_utils
 import augmentation
 import files
 import config
+import cv2
 
 def preprocess_image(path, input_shape):
-    img = Image.open(path)
+    # img = Image.open(path)
 
-    img = img.resize(input_shape[:-1][::-1])
-    img = img.convert("RGB")
+    # img = img.resize(input_shape[:-1][::-1])
+    # img = img.convert("RGB")
+
+    img = cv2.imread(path)  # Seems to be around 50% faster than PIL
+    img = cv2.resize(img, input_shape[:-1][::-1])
 
     return img
 
@@ -38,7 +42,7 @@ def augment_data(image, boxes, labels, augmentations):
     centroids = box_utils.convert_to_centroids(box_utils.scale_box(transformed_boxes, (1 / image.shape[0], 1 / image.shape[1])))
     data = [rgb_image, centroids, transformed_labels]
 
-    # box_utils.plot_ious(centroids, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(transformed_img[:, :, ::-1]), mode="RGB"), scale_coords=False)
+    # box_utils.plot_ious(centroids, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(rgb_image), mode="RGB"))
 
     return data
 
@@ -81,7 +85,7 @@ def prepare_dataset(path, labels, training_ratio=0):
         augmentation.random_saturation,
         augmentation.random_vertical_flip,
         augmentation.random_horizontal_flip,
-        augmentation.random_expand,
+        augmentation.random_expand,  # Could decrease max_ratio to make faster
         augmentation.random_crop
     ]
     probabilities = [0.5] * len(augmentations)
