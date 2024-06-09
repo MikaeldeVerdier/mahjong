@@ -87,10 +87,14 @@ def match(boxes1, boxes2, matching_threshold=0.5, neutral_threshold=0.3):
 	ious = calculate_iou(boxes1, boxes2)
 
 	matches = np.argmax(ious, axis=-1)[:, None].tolist()
-	for gt_index, default_index in zip(*np.where(ious >= neutral_threshold)):  # Could probably be simplified to avoid this zip 
+
+	gt_box_indices = np.argmax(ious, axis=0)  # maxing along axis 0 assures one box can't be used for multiple gts
+	default_indices = np.nonzero(np.max(ious, axis=0) >= matching_threshold)[0]
+	gt_indices = gt_box_indices[default_indices]
+	for gt_index, default_index in zip(gt_indices, default_indices):
 		matches[gt_index].append(default_index)
 
-	neutrals = np.where((ious >= neutral_threshold) & (ious <= matching_threshold))[1]
+	neutrals = np.where((ious >= neutral_threshold) & (ious < matching_threshold))[1]
 
 	return matches, neutrals
 

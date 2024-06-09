@@ -53,9 +53,9 @@ def prepare_training(image_path, gt_boxes, label_indices, augmentations, input_s
     # image_arr = np.array(image)
 
     augmented_image_arr, gt_box, labels = augment_data(image_arr, gt_boxes, label_indices, augmentations)
-
     # box_utils.plot_ious(gt_box, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(augmented_image_arr), mode="RGB"))
-    processed_image = preprocess_function(augmented_image_arr)
+
+    processed_image = preprocess_function(augmented_image_arr)  # Writes over augmented_image_arr (processed_image == augmented_image_arr[:, :, ::-1])
 
     matches, neutral_indices = box_utils.match(gt_box, default_boxes)
 
@@ -118,7 +118,9 @@ def prepare_dataset(path, labels, training_ratio=0):
             confidences.append(labels.index(label["label"]))
 
         if i < amount_training:
-            all_chosen_augmentations = []
+            dataset[0].append([img_path, locations, confidences, []])  # First, original image
+
+            all_chosen_augmentations = [[]]
             for _ in range(config.AUGMENTATION_AMOUNT):
                 mask = np.random.rand(len(augmentations)) < probabilities
                 chosen_augmentations = [augmentation_func for augmentation_func, selected in zip(augmentations, mask) if selected]
