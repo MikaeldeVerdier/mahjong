@@ -85,16 +85,18 @@ def calculate_iou(boxes1, boxes2):
 
 def match(boxes1, boxes2, matching_threshold=0.5, neutral_threshold=0.3):
 	ious = calculate_iou(boxes1, boxes2)
-
 	matches = np.argmax(ious, axis=-1)[:, None].tolist()
+	ious[:, matches] = 0  # To ensure matched boxes don't get matched again (needed so that it doesn't get classified as a neutral box too)
 
-	gt_box_indices = np.argmax(ious, axis=0)  # maxing along axis 0 assures one box can't be used for multiple gts
-	default_indices = np.nonzero(np.max(ious, axis=0) >= matching_threshold)[0]
+	gt_box_indices = np.argmax(ious, axis=0)  # maxing along axis 0 assures one box can't be used for multiple gts (same for maxed_iou)
+	maxed_iou = np.max(ious, axis=0)
+	default_indices = np.nonzero(maxed_iou >= matching_threshold)[0]
 	gt_indices = gt_box_indices[default_indices]
-	for gt_index, default_index in zip(gt_indices, default_indices):
+	for gt_index, default_index in zip(gt_indices, default_indices):  # Includes the match already
 		matches[gt_index].append(default_index)
+		# ious[gt_index, default_index] = 0
 
-	neutrals = np.where((ious >= neutral_threshold) & (ious < matching_threshold))[1]
+	neutrals = np.nonzero((maxed_iou >= neutral_threshold) & (maxed_iou < matching_threshold))[0]
 
 	return matches, neutrals
 
