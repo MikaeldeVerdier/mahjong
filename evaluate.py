@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 
 import box_utils
 import config
+from prepare import prepare_testing
 
 # Didn't match them by image
 # def calculate_precision_recall(pred, gt, iou_threshold=0.5):
@@ -279,8 +280,9 @@ def calculate_average_precision(preds_gts, iou_threshold=0.5):
 def evaluate(model, dataset, labels):
     all_preds_gts = []
 
-    for image, gt_boxes, gt_labels in dataset:
-        pred = model.inference(image, labels, confidence_threshold=0.05)  # Supposed to be 0.01 (as in SSD paper)
+    for image_path, gt_boxes, gt_labels in dataset:
+        image, gt_boxes, gt_labels = prepare_testing(image_path, gt_boxes, gt_labels, model.input_shape)
+        pred = model.inference(image, labels, confidence_threshold=0.3)  # Supposed to be 0.01 (as in SSD paper)
 
         # box_utils.plot_ious(gt_boxes, pred[1], image, labels=pred[0], confidences=pred[2])
 

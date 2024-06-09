@@ -17,6 +17,7 @@ def preprocess_image(path, input_shape):
 
     img = cv2.imread(path)  # Seems to be around 50% faster than PIL
     img = cv2.resize(img, input_shape[:-1][::-1])
+    img = img[:, :, ::-1]
 
     return img
 
@@ -48,8 +49,8 @@ def augment_data(image, boxes, labels, augmentations):
 
 
 def prepare_training(image_path, gt_boxes, label_indices, augmentations, input_shape, label_amount, default_boxes, preprocess_function):
-    image = preprocess_image(image_path, input_shape)
-    image_arr = np.array(image)
+    image_arr = preprocess_image(image_path, input_shape)
+    # image_arr = np.array(image)
 
     augmented_image_arr, gt_box, labels = augment_data(image_arr, gt_boxes, label_indices, augmentations)
 
@@ -74,6 +75,13 @@ def prepare_training(image_path, gt_boxes, label_indices, augmentations, input_s
     generated_data = [processed_image, gt]
 
     return generated_data
+
+
+def prepare_testing(image_path, gt_boxes, label_indices, input_shape):
+    image = preprocess_image(image_path, input_shape)
+    image = Image.fromarray(image, mode="RGB")
+
+    return image, gt_boxes, label_indices
 
 
 def prepare_dataset(path, labels, training_ratio=0):
