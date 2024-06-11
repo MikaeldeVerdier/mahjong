@@ -23,6 +23,9 @@ def preprocess_image(path, input_shape):
 
 
 def augment_data(image, boxes, labels, augmentations):
+    if not len(augmentations):
+        return image, boxes, labels
+
     bgr_image = np.float32(image[:, :, ::-1])  # Equivalent to cv2.cvtColor(image, cv2.RGB2BGR)
     coords = box_utils.scale_box(box_utils.convert_to_coordinates(boxes), image.shape[:-1])
 

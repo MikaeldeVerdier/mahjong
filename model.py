@@ -115,11 +115,26 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		self.default_boxes = np.empty(shape=(0, 4))
 		im_aspect_ratio = self.input_shape[1] / self.input_shape[0]
 
+		aspect_ratios = [
+			(0.5, 1, 2),
+			(0.33, 0.5, 1, 2, 3),
+			(0.33, 0.5, 1, 2, 3),
+			(0.33, 0.5, 1, 2, 3),
+			(0.5, 1, 2),
+			(0.5, 1, 2)
+		]
+		scales = [
+			(0.1, 0.9),
+			(0.2, 0.9),
+			(0.2, 0.9),
+			(0.2, 0.9),
+			(0.2, 0.9),
+			(0.2, 0.9),
+		]
+
 		head_outputs = [[], []]
-		for k, output in enumerate(outputs, 1):
-			aspect_ratios = [1, 2, 0.5, 3, 1 / 3] if k not in (1, 5, 6) else [1, 2, 0.5]
-			scales = (0.2, 0.9) if k != 1 else (0.1, 0.9)
-			defaults = box_utils.default_boxes(k, len(outputs), aspect_ratios, output.shape[1:3], scales=scales, im_aspect_ratio=im_aspect_ratio)
+		for k, (output, aspect_ratio, scale) in enumerate(zip(outputs, aspect_ratios, scales), 1):
+			defaults = box_utils.default_boxes(k - 1, len(outputs), aspect_ratio, output.shape[1:3], ep_scales=scale, im_aspect_ratio=im_aspect_ratio)
 			# defaults = default_boxes(k, len(outputs), aspect_ratios, output.shape[1:3])
 			self.default_boxes = np.concatenate([self.default_boxes, defaults.reshape(-1, 4)])
 

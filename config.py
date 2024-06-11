@@ -1,5 +1,5 @@
 # Training configuration
-TRAINING_SPLIT = 1
+TRAINING_SPLIT = 0.7
 AUGMENTATION_AMOUNT = 3
 LEARNING_RATE = 1e-3
 MOMENTUM = 0.9
@@ -14,4 +14,4 @@ VALIDATION_SPLIT = 0.2
 
 # Saving configuration
 SAVE_FOLDER_PATH = "save_folder"
-SAVING_RATIO = 1
+SAVING_RATIO = 0.2

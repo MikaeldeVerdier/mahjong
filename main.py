@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     model.convert_to_mlmodel(labels)
 
-    # _, testing_dataset = prepare_dataset("dataset", labels, input_shape, training_ratio=0)
+    # _, testing_dataset = prepare_dataset("dataset", labels, training_ratio=0)
 
     mAP = evaluate(model, testing_dataset, labels)
     print(f"The model got an mAP score of {mAP}")

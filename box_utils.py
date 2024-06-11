@@ -6,20 +6,16 @@ import config
 
 # All functions assume centroids for bounding boxes (except convert_to_centroids)
 
-def default_boxes(k, m, aspect_ratios, f, scales=(0.2, 0.9), im_aspect_ratio=1):
-	def s(k, m, s_min=scales[0], s_max=scales[1]):
-		return s_min + (s_max - s_min) / (m - 1) * (k - 1)
+def create_boxes(scale, aspect_ratio, f):
+	w = scale * np.sqrt(aspect_ratio)
+	h = scale / np.sqrt(aspect_ratio)
 
-	scale_i = s(k, m)
-	extra_box_scale = np.sqrt(scale_i * s(k + 1, m))
+	return [[(i + 0.5) / f[1], (j + 0.5) / f[0], w, h] for i in range(f[1]) for j in range(f[0])]
 
-	def create_boxes(scale, aspect_ratio, f):
-		w = scale * np.sqrt(aspect_ratio)
-		h = scale / np.sqrt(aspect_ratio)
 
-		return [[(i + 0.5) / f[1], (j + 0.5) / f[0], w, h] for i in range(f[1]) for j in range(f[0])]
-
-	anchor_boxes = np.array([create_boxes(scale_i, ar / im_aspect_ratio, f) for ar in aspect_ratios] + [create_boxes(extra_box_scale, 1 / im_aspect_ratio, f)])
+def default_boxes(k, m, aspect_ratios, f, ep_scales=(0.2, 0.9), im_aspect_ratio=1):
+	scales = np.linspace(ep_scales[0], ep_scales[1], m + 1)
+	anchor_boxes = np.array([create_boxes(scales[k], ar / im_aspect_ratio, f) for ar in aspect_ratios] + [create_boxes(scales[k + 1], 1 / im_aspect_ratio, f)])
 
 	return anchor_boxes
 
