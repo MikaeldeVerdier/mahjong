@@ -21,33 +21,41 @@ def default_boxes(k, m, aspect_ratios, f, ep_scales=(0.2, 0.9), im_aspect_ratio=
 
 
 def convert_to_centroids(boxes):
-	min_xs = boxes[:, 0]
-	min_ys = boxes[:, 1]
-	max_xs = boxes[:, 2]
-	max_ys = boxes[:, 3]
+	cx_cy = (boxes[..., :2] + boxes[..., 2:]) / 2
+	w_h = boxes[..., 2:] - boxes[..., :2]
+	boxes = np.concatenate([cx_cy, w_h], axis=-1)
 
-	w = max_xs - min_xs
-	h = max_ys - min_ys
-	cx = min_xs + w * 0.5
-	cy = min_ys + h * 0.5
+	# min_xs = boxes[:, 0]
+	# min_ys = boxes[:, 1]
+	# max_xs = boxes[:, 2]
+	# max_ys = boxes[:, 3]
 
-	boxes = np.transpose([cx, cy, w, h])
+	# w = max_xs - min_xs
+	# h = max_ys - min_ys
+	# cx = min_xs + w * 0.5
+	# cy = min_ys + h * 0.5
+
+	# boxes = np.transpose([cx, cy, w, h])
 
 	return boxes
 
 
 def convert_to_coordinates(boxes):
-	cxs = boxes[:, 0]
-	cys = boxes[:, 1]
-	ws = boxes[:, 2]
-	hs = boxes[:, 3]
+	xmin_ymin = boxes[..., :2] - boxes[..., 2:] / 2
+	xmax_y_max = boxes[..., :2] + boxes[..., 2:] / 2
+	boxes = np.concatenate([xmin_ymin, xmax_y_max], axis=-1)
 
-	min_x = cxs - ws * 0.5
-	min_y = cys - hs * 0.5
-	max_x = min_x + ws
-	max_y = min_y + hs
+	# cxs = boxes[:, 0]
+	# cys = boxes[:, 1]
+	# ws = boxes[:, 2]
+	# hs = boxes[:, 3]
 
-	boxes = np.transpose([min_x, min_y, max_x, max_y])  # np.moveaxis([min_x, min_y, max_x, max_y], 0, -1) instead?
+	# min_x = cxs - ws * 0.5
+	# min_y = cys - hs * 0.5
+	# max_x = min_x + ws
+	# max_y = min_y + hs
+
+	# boxes = np.transpose([min_x, min_y, max_x, max_y])  # np.moveaxis([min_x, min_y, max_x, max_y], 0, -1) instead?
 
 	return boxes
 
