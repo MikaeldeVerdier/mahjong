@@ -217,6 +217,11 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		return loss
 
+	def ssd_loss2(self, y_true, y_pred):
+		from multiboxloss import multibox_loss
+
+		return multibox_loss(y_pred[:, :, -4:], y_pred[:, :, :-4], y_true[:, :, -4:], np.argmax(y_true[:, :, :-4], axis=-1), self.hard_neg_ratio)
+
 	"""
 	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.1):
 		classes = tf.argmax(scores, axis=1)
