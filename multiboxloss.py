@@ -9,7 +9,7 @@ def _elementwise_softmax_cross_entropy(x, t):
 		assert x.shape[:-1] == t.shape
 		p = tf.reshape(
 			tf.gather_nd(tf.reshape(x, [-1, x.shape[-1]]), tf.reshape(t, [-1, 1]), batch_dims=1),
-			t.shape
+			(-1, t.shape[1])
 		)
 		return tf.reduce_logsumexp(x, axis=-1) - p
 
