@@ -19,8 +19,6 @@ import box_utils
 import config
 from l2_norm import L2Normalization
 
-from multiboxloss import multibox_loss
-
 class SSD_Model:  # Consider instead saving weights, and using a seperate training and inference model (to decode in model)
 	def __init__(self, input_shape, class_amount, lr=config.LEARNING_RATE, momentum=config.MOMENTUM, hard_neg_ratio=config.HARD_NEGATIVE_RATIO, alpha=config.ALPHA, load=False):
 		self.input_shape = input_shape
@@ -155,7 +153,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		output = Concatenate(axis=-1)([class_predictions, location_predictions])
 
 		self.model = Model(inputs=[base_network.input], outputs=[output])
-		self.model.compile(loss=self.ssd_loss2, optimizer=SGD(learning_rate=learning_rate, momentum=momentum))
+		self.model.compile(loss=self.ssd_loss, optimizer=SGD(learning_rate=learning_rate, momentum=momentum))
 
 		self.plot_model()
 		self.model.summary()
@@ -218,12 +216,6 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
 
 		return loss
-
-	def ssd_loss2(self, y_true, y_pred):
-		loc_loss, conf_loss = multibox_loss(y_pred[:, :, -4:], y_pred[:, :, :-4], y_true[:, :, -4:], tf.argmax(y_true[:, :, :-4], axis=-1), self.hard_neg_ratio)
-		tot_loss = loc_loss + conf_loss
-
-		return tot_loss
 
 	"""
 	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.1):
