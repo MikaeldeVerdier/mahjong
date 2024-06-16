@@ -81,7 +81,8 @@ class Converter:
 
                     img = Image.open(image_path)
                     
-                    new_path = os.path.join(dir_path, image_path.split("/")[-1])
+                    img_name = image_path.split("/" if "/" in os.getcwd() else "\\")[-1]  # Windows-compatibility.
+                    new_path = os.path.join(dir_path, img_name)
                     img.save(new_path)
 
 input_roots = ["VOCdevkit/VOC2007", "VOCdevkit/VOC2012"]
