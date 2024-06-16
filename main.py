@@ -16,7 +16,7 @@ input_shape = (300, 300, 3)
 if __name__ == "__main__":
     model = SSD_Model(input_shape, label_amount)
 
-    training_dataset, testing_dataset = prepare_dataset("dataset", labels, training_ratio=config.TRAINING_SPLIT)
+    training_dataset, testing_dataset = prepare_dataset("dataset/data/train", labels, training_ratio=config.TRAINING_SPLIT)
     retrain(model, training_dataset, config.TRAINING_ITERATIONS, config.EPOCHS, saved_ratio=config.SAVING_RATIO)
 
     model.save_model("model")
@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     model.convert_to_mlmodel(labels)
 
-    # _, testing_dataset = prepare_dataset("dataset", labels, training_ratio=0)
+    # _, testing_dataset = prepare_dataset("dataset/data/test", labels, training_ratio=0)
 
     mAP = evaluate(model, testing_dataset, labels)
     print(f"The model got an mAP score of {mAP}")
