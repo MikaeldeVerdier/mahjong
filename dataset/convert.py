@@ -9,54 +9,55 @@ sys.path.append(".")
 from box_utils import convert_to_centroids
 
 class Converter:
-    def __init__(self, root):
-        self.root = root
+    def __init__(self, roots):
+        self.roots = roots
 
     def convert_to_createml(self, save_paths, divisions=["train", "val", "test"]):
-        subsets = {}
-        for subset in divisions:
-            subset_layout_path = os.path.join(self.root, f"ImageSets/Main/{subset}.txt")
+        for root in self.roots:
+            subsets = {}
+            for subset in divisions:
+                subset_layout_path = os.path.join(root, f"ImageSets/Main/{subset}.txt")
 
-            if os.path.exists(subset_layout_path):
-                with open(subset_layout_path, "r") as subset_layout_file:
-                    subsets[subset] = subset_layout_file.read().split("\n")
+                if os.path.exists(subset_layout_path):
+                    with open(subset_layout_path, "r") as subset_layout_file:
+                        subsets[subset] = subset_layout_file.read().split("\n")
 
-        annotations = {division: [] for division in divisions}
-        annotations_path = os.path.join(self.root, "Annotations")
+            annotations = {division: [] for division in divisions}
+            annotations_path = os.path.join(root, "Annotations")
 
-        for annotation in os.listdir(annotations_path):
-            path = os.path.join(annotations_path, annotation)
-            root = ET.parse(path).getroot()
+            for annotation in os.listdir(annotations_path):
+                path = os.path.join(annotations_path, annotation)
+                target_root = ET.parse(path).getroot()
 
-            # folder = root.find("folder").text
-            img_name = root.find("filename").text
-            names = [name.text for name in root.findall("object/name")]
-            boxes = [{coord.tag: float(coord.text) for coord in bnd_box} for bnd_box in root.findall("object/bndbox")]
-            boxes = np.array([[box["xmin"], box["ymin"], box["xmax"], box["ymax"]] for box in boxes])
-            centroid_boxes = convert_to_centroids(boxes)  # Don't know why this abs is needed (w, h are negative otherwise)
+                # folder = root.find("folder").text
+                img_name = target_root.find("filename").text
+                names = [name.text for name in target_root.findall("object/name")]
+                boxes = [{coord.tag: float(coord.text) for coord in bnd_box} for bnd_box in target_root.findall("object/bndbox")]
+                boxes = np.array([[box["xmin"], box["ymin"], box["xmax"], box["ymax"]] for box in boxes])
+                centroid_boxes = convert_to_centroids(boxes)  # Don't know why this abs is needed (w, h are negative otherwise)
 
-            # from box_utils import plot_ious
-            # plot_ious(centroid_boxes, np.empty(shape=(0, 4)), Image.open(os.path.join(self.root, "JPEGImages", img_name)), scale_coords=False)
+                # from box_utils import plot_ious
+                # plot_ious(centroid_boxes, np.empty(shape=(0, 4)), Image.open(os.path.join(self.root, "JPEGImages", img_name)), scale_coords=False)
 
-            createml_annotation = {
-                "image": img_name,
-                "annotations": [
-                    {
-                        "label": label,
-                        "coordinates": {
-                            "x": coords[0],
-                            "y": coords[1],
-                            "w": coords[2],
-                            "h": coords[3]
+                createml_annotation = {
+                    "image": img_name,
+                    "annotations": [
+                        {
+                            "label": label,
+                            "coordinates": {
+                                "x": coords[0],
+                                "y": coords[1],
+                                "w": coords[2],
+                                "h": coords[3]
+                            }
                         }
-                    }
-                for label, coords in zip(names, centroid_boxes)]
-            }
+                    for label, coords in zip(names, centroid_boxes)]
+                }
 
-            file_name = annotation.replace(".xml", "")
-            for division in divisions:
-                if division == "none" or file_name in subsets[division]:
-                    annotations[division].append(createml_annotation)
+                file_name = annotation.replace(".xml", "")
+                for division in divisions:
+                    if division == "none" or file_name in subsets[division]:
+                        annotations[division].append(createml_annotation)
 
         self.save_annotations(annotations, save_paths)
 
@@ -72,15 +73,19 @@ class Converter:
             with open(anontations_path, "w") as json_file:
                 json.dump(annotations, json_file)
 
-            image_paths = [os.path.join(self.root, "JPEGImages", annotation["image"]) for annotation in annotations]
-            for image_path in image_paths:
-                img = Image.open(image_path)
-                
-                new_path = os.path.join(dir_path, image_path.split("/")[-1])
-                img.save(new_path)
+            for root in self.roots:
+                image_paths = [os.path.join(root, "JPEGImages", annotation["image"]) for annotation in annotations]
+                for image_path in image_paths:
+                    if not os.path.exists(image_path):
+                        continue
 
-input_root = "VOCdevkit/VOC2012"
-converter = Converter(input_root)
+                    img = Image.open(image_path)
+                    
+                    new_path = os.path.join(dir_path, image_path.split("/")[-1])
+                    img.save(new_path)
 
-output_dirs = ["dataset/data/VOC2012_ALL"]
+input_roots = ["VOCdevkit/VOC2007", "VOCdevkit/VOC2012"]
+converter = Converter(input_roots)
+
+output_dirs = ["dataset/data/VOC07+12_all"]
 dataset = converter.convert_to_createml(output_dirs, divisions=["none"])
