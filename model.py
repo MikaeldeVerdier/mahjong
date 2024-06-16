@@ -153,7 +153,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		output = Concatenate(axis=-1)([class_predictions, location_predictions])
 
 		self.model = Model(inputs=[base_network.input], outputs=[output])
-		self.model.compile(loss=self.ssd_loss2, optimizer=SGD(learning_rate=learning_rate, momentum=momentum))
+		self.model.compile(loss=self.ssd_loss, optimizer=SGD(learning_rate=learning_rate, momentum=momentum))
 
 		self.plot_model()
 		self.model.summary()
@@ -175,7 +175,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		square_loss = 0.5 * (y_true - y_pred) ** 2
 		l1_loss = tf.where(tf.less(absolute_loss, 1.0), square_loss, absolute_loss - 0.5)
 
-		return tf.reduce_sum(l1_loss, axis=-1)
+		return tf.reduce_mean(l1_loss, axis=-1)  # ORIGINALLY: tf.reduce_sum(l1_loss, axis=-1)
 
 	"""
 	def ssd_loss(self, y_true, y_pred):
@@ -223,35 +223,52 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		y_true = tf.cast(y_true, tf.float32)
 		y_pred = tf.cast(y_pred, tf.float32)
 
-		cls_loss = self.log_loss(y_true[:, :, :-4], y_pred[:, :, :-4])
-		loc_loss = self.smooth_L1_loss(y_true[:, :, -4:], y_pred[:, :, -4:])
+		cls_loss = self.log_loss(y_true[:, :, :-4], y_pred[:, :, :-4])  # CategoricalCrossentropy(reduction="none")(y_true[:, :, :-4], y_pred[:, :, :-4])  #
+		loc_loss = self.smooth_L1_loss(y_true[:, :, -4:], y_pred[:, :, -4:])  # Huber(reduction="none")(y_true[:, :, -4:], y_pred[:, :, -4:])  # 
 
-		# batch_size = tf.shape(y_true)[0]
+		batch_size = tf.shape(y_true)[0]
 		num_boxes = tf.shape(y_true)[1]
 
-		pos_mask = tf.reduce_max(y_true[:, :, 1:-4], axis=-1)
+		pos_mask = tf.reduce_max(y_true[:, :, 1:-4], axis=-1)  # is not ~neg_mask because of neutral boxes
 		cls_pos_losses = cls_loss * pos_mask
 
 		neg_mask = y_true[:, :, 0]
 		cls_neg_losses = cls_loss * neg_mask
 
-		top_negs = tf.nn.top_k(cls_neg_losses, k=num_boxes)[0]  # tf.sort ?
+		flat_confs = tf.reshape(y_pred[:, :, :-4], (-1, self.class_amount + 1))
+		labels = tf.argmax(y_true[:, :, :-4], axis=-1)
+
+		max_conf = tf.reduce_max(flat_confs)
+		log_sum_exp = tf.math.log(tf.reduce_sum(tf.exp(flat_confs - max_conf), axis=1, keepdims=True)) + max_conf
+
+		confs_for_labels = tf.gather(flat_confs, tf.reshape(labels, (-1, 1)), batch_dims=1)
+		flat_loss_est = log_sum_exp - confs_for_labels
+
+		loss_est = tf.reshape(flat_loss_est, (batch_size, num_boxes))
+		neg_loss_est = loss_est * neg_mask
+
+		top_indices = tf.argsort(neg_loss_est, direction="DESCENDING")  # _, ind = tf.nn.top_k(loss_c, k=num_boxes)
+		top_negs = tf.gather(cls_neg_losses, top_indices, batch_dims=1)
+
 		pos_amount = tf.reduce_sum(pos_mask, axis=-1)
 		neg_amount = tf.minimum(tf.reduce_sum(neg_mask, axis=-1), pos_amount * self.hard_neg_ratio)
 
-		indices = tf.range(0, num_boxes)
-		top_neg_mask = indices[None] < tf.cast(neg_amount, tf.int32)[:, None]
+		range_indices = tf.range(0, num_boxes)
+		top_neg_mask = range_indices[None] < tf.cast(neg_amount, tf.int32)[:, None]
 		top_neg_losses = top_negs * tf.cast(top_neg_mask, tf.float32)
 
-		cls_pos_loss = tf.reduce_sum(cls_pos_losses, axis=-1)
-		cls_neg_loss = tf.reduce_sum(top_neg_losses, axis=-1)
+		cls_pos_loss = tf.reduce_sum(cls_pos_losses)  # , axis=-1)
+		cls_neg_loss = tf.reduce_sum(top_neg_losses)  # , axis=-1)
 
 		loc_pos_losses = loc_loss * pos_mask
-		loc_loss = tf.reduce_sum(loc_pos_losses, axis=-1)
+		loc_pos_loss = tf.reduce_sum(loc_pos_losses)  # , axis=-1)
 
-		loss = (cls_pos_loss + cls_neg_loss + tf.constant(self.alpha, dtype=tf.float32) * loc_loss) / tf.maximum(pos_amount, 1.0)
+		tot_pos_amount = tf.reduce_sum(pos_amount)
+		loss = (cls_pos_loss + cls_neg_loss + tf.cast(self.alpha, tf.float32) * loc_pos_loss) / tf.maximum(tot_pos_amount, 1.0)  # Not really needed, pos_amount can't be 0 in this implementation
 		# loss *= tf.cast(pos_amount != 0, tf.float32)  # Shouldn't loss be 0 when there are no positives (according to paper)
 		# loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
+
+		# loss = tf.reduce_mean(loss)
 
 		return loss
 
