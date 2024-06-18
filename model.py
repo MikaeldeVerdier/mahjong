@@ -7,7 +7,7 @@ from keras.utils import plot_model
 # from keras.applications import VGG16
 from keras.applications.vgg16 import preprocess_input
 # from keras.callbacks import TensorBoard
-from keras.layers import Input, Activation, Concatenate, Conv2D, Reshape, MaxPooling2D
+from keras.layers import Input, Activation, Concatenate, Conv2D, Reshape, MaxPooling2D, ZeroPadding2D
 from keras.losses import CategoricalCrossentropy, Huber
 # from keras.metrics import MeanSquaredError, Accuracy
 from keras.models import Model, load_model
@@ -79,6 +79,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		base_network = self.build_base(kernel_initializer="he_normal", kernel_regularizer=L2(config.L2_REG))
 		base_network.trainable = False
+		# for layer in base_network.layers:
+		# 	layer.trainable = False
 
 		outputs = []
 
@@ -92,22 +94,24 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		# Auxiliary layers
 		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", dilation_rate=(6, 6), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)  # tf.nn.atrous_conv2d (https://www.tensorflow.org/api_docs/python/tf/nn/atrous_conv2d)?
-		x = Conv2D(filters=1024, kernel_size=(1, 1), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=1024, kernel_size=(1, 1), padding="same", activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 
-		x = Conv2D(filters=256, kernel_size=(1, 1), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
-		x = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), padding="same", activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=256, kernel_size=(1, 1), padding="same", activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = ZeroPadding2D(padding=((1, 1), (1, 1)))(x)
+		x = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 
-		x = Conv2D(filters=128, kernel_size=(1, 1), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
-		x = Conv2D(filters=256, kernel_size=(3, 3), strides=(2, 2), padding="same", activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=128, kernel_size=(1, 1), padding="same", activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = ZeroPadding2D(padding=((1, 1), (1, 1)))(x)
+		x = Conv2D(filters=256, kernel_size=(3, 3), strides=(2, 2), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 
-		x = Conv2D(filters=128, kernel_size=(1, 1), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=128, kernel_size=(1, 1), padding="same", activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		x = Conv2D(filters=256, kernel_size=(3, 3), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 
-		x = Conv2D(filters=128, kernel_size=(1, 1), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=128, kernel_size=(1, 1), padding="same", activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		x = Conv2D(filters=256, kernel_size=(3, 3), activation="relu", kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 		#
