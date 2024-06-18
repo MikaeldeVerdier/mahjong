@@ -14,8 +14,11 @@ def create_boxes(scale, aspect_ratio, f):
 
 
 def default_boxes(k, m, aspect_ratios, f, ep_scales=(0.2, 0.9), im_aspect_ratio=1):
-	scales = np.linspace(ep_scales[0], ep_scales[1], m + 1)
+	scales = np.append(np.linspace(ep_scales[0], ep_scales[1], m), [ep_scales[1] + (ep_scales[1] - ep_scales[0]) / m])
 	anchor_boxes = np.array([create_boxes(scales[k], ar / im_aspect_ratio, f) for ar in aspect_ratios] + [create_boxes(scales[k + 1], 1 / im_aspect_ratio, f)])
+
+	# slope = (ep_scales[1] - ep_scales[0]) / (m - 1)
+	# y_intercept = ep_scales[0]
 
 	return anchor_boxes
 

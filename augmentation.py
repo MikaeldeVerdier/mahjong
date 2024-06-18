@@ -280,7 +280,7 @@ def random_horizontal_flip(image, bboxes, classes, p=0.5):
     return np.array(cv2.flip(np.uint8(image), 1), dtype=np.float32), temp_bboxes, classes
 
 
-def random_expand(image, bboxes, classes, min_ratio=1, max_ratio=4, mean=[104, 117, 123] , p=0.5):  # old means = [0.406, 0.456, 0.485] (mean / 255)
+def random_expand(image, bboxes, classes, min_ratio=1, max_ratio=4, mean=[123, 117, 104] , p=0.5):  # old means = [0.406, 0.456, 0.485] (mean / 255) (IN RGB)
     """ Randomly expands an image and bounding boxes by a ratio between min_ratio and max_ratio. The image format is assumed to be BGR to match Opencv's standard.
     Args:
         - image: numpy array representing the input image.

@@ -116,12 +116,12 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		im_aspect_ratio = self.input_shape[1] / self.input_shape[0]
 
 		aspect_ratios = [
-			(0.5, 1, 2),
-			(0.33, 0.5, 1, 2, 3),
-			(0.33, 0.5, 1, 2, 3),
-			(0.33, 0.5, 1, 2, 3),
-			(0.5, 1, 2),
-			(0.5, 1, 2)
+			(1, 2, 0.5),
+			(1, 2, 0.5, 3, 1 / 3),
+			(1, 2, 0.5, 3, 1 / 3),
+			(1, 2, 0.5, 3, 1 / 3),
+			(1, 2, 0.5),
+			(1, 2, 0.5)
 		]
 		scales = [
 			(0.1, 0.9),

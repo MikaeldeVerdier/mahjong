@@ -202,6 +202,7 @@ def plot_prec_rec(precision_values, recall_values, ap_values, labels):
     plt.close()
 
 
+"""
 def calculate_precision_recall(preds_gts, iou_threshold=0.5):
     true_positives = 0
     false_positives = 0
@@ -307,7 +308,157 @@ def evaluate(model, dataset, labels):
     plot_prec_rec(precision_values, recall_values, ap_values, labels)
 
     return mean_average_precision
+"""
 
+
+def compute_prec_rec(tps, fps, total):
+    cum_prec = np.where(tps + fps > 0, tps / (tps + fps), 0)
+    cum_rec = tps / total  # cum_tp / (cum_tp[-1] + fn_tot)
+
+    return cum_prec, cum_rec
+
+
+def compute_AP(tps, fps, total, num_recall_points=11):
+    prec, rec = compute_prec_rec(tps, fps, total)
+
+    ap = 0
+    for t in np.linspace(0, 1, num_recall_points, endpoint=True):
+        cum_prec_threshed = prec[rec >= t]
+
+        if not len(cum_prec_threshed):
+            precision = 0
+        else:
+            precision = np.max(cum_prec_threshed)
+
+        ap += precision
+    ap /= num_recall_points
+
+    return ap, prec, rec
+
+
+def compute_mAP(all_preds, all_gts, labels, matching_threshold=0.5):  # Sample-based 2012 mAP (based on https://github.com/pierluigiferrari/ssd_keras/blob/master/eval_utils/average_precision_evaluator.py)
+    aps = []
+    cum_precs = []
+    cum_recs = []
+
+    num_gts = np.zeros(shape=len(labels))
+    for img_gts in all_gts:
+        for gt in img_gts:
+            num_gts[int(gt[0])] += 1
+
+    for label_index in range(len(labels)):
+        preds = np.array(all_preds[label_index])
+        preds_sorted = preds[np.argsort(-preds[:, 1])]
+
+        tp = np.zeros(len(preds))
+        fp = np.zeros(len(preds))
+        gts_matched = [[] for _ in range(len(all_gts))]
+        for i, pred in enumerate(preds_sorted):
+            image_id = int(pred[0])
+            gts = all_gts[image_id]
+
+            label_mask = gts[:, 0] == label_index  # Because of entry per label vs entry per image  (could maybe use the same)
+            gts = gts[label_mask]
+
+            if not len(gts):
+                fp[i] = 1
+
+                continue
+
+            ious = box_utils.calculate_iou(pred[-4:][None], gts[:, -4:])[0]
+            gt_match_index = np.argmax(ious)
+            gt_match_iou = ious[gt_match_index]
+
+            if label_index == 0 and i < 100:
+                print(gt_match_iou)
+
+            if gt_match_iou < matching_threshold:
+                fp[i] = 1
+            else:
+                if not len(gts_matched[image_id]):
+                    tp[i] = 1
+                    gts_matched[image_id] = np.zeros(shape=(len(gts)), dtype=bool)
+                    gts_matched[image_id][gt_match_index] = True
+                elif not gts_matched[image_id][gt_match_index]:
+                    tp[i] = 1
+                    gts_matched[image_id][gt_match_index] = True
+                else:
+                    fp[i] = 1
+
+        cum_tp = np.cumsum(tp)
+        cum_fp = np.cumsum(fp)
+
+        ap, prec, rec = compute_AP(cum_tp, cum_fp, num_gts[label_index])
+        aps.append(ap)
+        cum_precs.append(prec)
+        cum_recs.append(rec)
+
+    mAP = np.mean(aps)
+
+    return mAP, aps, cum_precs, cum_recs
+
+
+def evaluate(model, dataset, labels):
+    all_preds = [[] for _ in labels]  # Entry per label
+    all_gts = []  # Entry per image
+
+    all_preds_gts = []  # Just for eval_imp
+
+    for i, (image_path, gt_boxes, gt_labels) in enumerate(dataset):
+        image, gt_boxes, gt_labels = prepare_testing(image_path, gt_boxes, gt_labels, model.input_shape)
+        preds = model.inference(image, labels, confidence_threshold=0.05)  # Supposed to be 0.01 (as in SSD paper)
+
+        # box_utils.plot_ious(gt_boxes, pred[1], image, labels=pred[0], confidences=pred[2])
+
+        # preds = list(zip(*pred))
+        # structured_preds = np.concatenate([np.full(len(pred[0]), i)[:, None], pred[2][:, None], pred[1]], axis=1)  # (image_id, confidence, cx, cy, w, h)
+        for pred in zip(*preds):
+            strucutred_pred = np.concatenate([[i, pred[2]], pred[1]])  # (image_id, confidence, cx, cy, w, h)
+            label_index = labels.index(pred[0])
+            all_preds[label_index].append(strucutred_pred)
+
+        gts = np.concatenate([np.expand_dims(gt_labels, axis=1), gt_boxes], axis=-1)  # (label, cx, cy, w, h)  # np.array(gt_labels)[:, None]
+        all_gts.append(gts)
+
+        all_preds_gts.append((list(zip(*preds)), list(zip(*[np.array(labels)[gt_labels], gt_boxes]))))
+
+    mAP, aps, precisions, recalls = compute_mAP(all_preds, all_gts, labels)
+    plot_prec_rec(precisions, recalls, aps, labels)
+
+    return mAP
+
+"""
+    from eval_imp import Evaluator
+    e = Evaluator(model, len(labels), None)
+
+    # e(300, 300, 8, None)
+    p = list(zip(*all_preds_gts))
+    flat = [(i, tr) for i, ew in enumerate(p[0]) for tr in ew]
+
+    from box_utils import convert_to_coordinates, scale_box
+    u = [[] for _ in range(len(labels))]
+    for i, pred in flat:
+        box = np.array(scale_box(convert_to_coordinates(pred[1][None])[0], (300, 300)), np.int16)
+        u[labels.index(pred[0])].append([i, pred[2], box[0], box[1], box[2], box[3]])
+
+    e.prediction_results = u
+
+    asd = []
+    for img in p[1]:
+        asd.append([])
+        for pred in img:
+            box = np.array(scale_box(convert_to_coordinates(pred[1]), (300, 300)), np.int16)
+            asd[-1].append([labels.index(pred[0]), box[0], box[1], box[2], box[3]])
+
+    class DataGenerator:
+        def __init__(self, labels, eval_neutral, image_ids):
+            self.labels = labels
+            self.eval_neutral = eval_neutral
+            self.image_ids = image_ids
+    e.data_generator = DataGenerator(asd, None, list(range(len(p[0]))))
+
+    pre = e(300, 300, 8, return_precisions=True, return_recalls=True, return_average_precisions=True)
+"""
 
 # def calculate_precision_recall(preds, gts, iou_threshold=0.5):
 #     if len(preds) and len(gts):
