@@ -348,10 +348,15 @@ def compute_mAP(all_preds, all_gts, labels, matching_threshold=0.5):  # Sample-b
 
     for label_index in range(len(labels)):
         preds = np.array(all_preds[label_index])
-        preds_sorted = preds[np.argsort(-preds[:, 1])]
+        if not len(preds):
+            # aps.append(0)  # class is ignore for mAP
+            cum_precs.append([])
+            cum_recs.append(cum_recs.append([]))
 
         tp = np.zeros(len(preds))
         fp = np.zeros(len(preds))
+        preds_sorted = preds[np.argsort(-preds[:, 1])]
+
         gts_matched = [[] for _ in range(len(all_gts))]
         for i, pred in enumerate(preds_sorted):
             image_id = int(pred[0])
@@ -368,9 +373,6 @@ def compute_mAP(all_preds, all_gts, labels, matching_threshold=0.5):  # Sample-b
             ious = box_utils.calculate_iou(pred[-4:][None], gts[:, -4:])[0]
             gt_match_index = np.argmax(ious)
             gt_match_iou = ious[gt_match_index]
-
-            if label_index == 0 and i < 100:
-                print(gt_match_iou)
 
             if gt_match_iou < matching_threshold:
                 fp[i] = 1
@@ -408,7 +410,7 @@ def evaluate(model, dataset, labels):
         image, gt_boxes, gt_labels = prepare_testing(image_path, gt_boxes, gt_labels, model.input_shape)
         preds = model.inference(image, labels, confidence_threshold=0.05)  # Supposed to be 0.01 (as in SSD paper)
 
-        # box_utils.plot_ious(gt_boxes, pred[1], image, labels=pred[0], confidences=pred[2])
+        # box_utils.plot_ious(gt_boxes, preds[1], image, labels=preds[0], confidences=preds[2])
 
         # preds = list(zip(*pred))
         # structured_preds = np.concatenate([np.full(len(pred[0]), i)[:, None], pred[2][:, None], pred[1]], axis=1)  # (image_id, confidence, cx, cy, w, h)
