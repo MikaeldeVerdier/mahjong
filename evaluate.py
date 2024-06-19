@@ -353,6 +353,8 @@ def compute_mAP(all_preds, all_gts, labels, matching_threshold=0.5):  # Sample-b
             cum_precs.append([])
             cum_recs.append(cum_recs.append([]))
 
+            continue
+
         tp = np.zeros(len(preds))
         fp = np.zeros(len(preds))
         preds_sorted = preds[np.argsort(-preds[:, 1])]
@@ -404,11 +406,9 @@ def evaluate(model, dataset, labels):
     all_preds = [[] for _ in labels]  # Entry per label
     all_gts = []  # Entry per image
 
-    all_preds_gts = []  # Just for eval_imp
-
     for i, (image_path, gt_boxes, gt_labels) in enumerate(dataset):
         image, gt_boxes, gt_labels = prepare_testing(image_path, gt_boxes, gt_labels, model.input_shape)
-        preds = model.inference(image, labels, confidence_threshold=0.05)  # Supposed to be 0.01 (as in SSD paper)
+        preds = model.inference(image, labels, confidence_threshold=0.01)  # Supposed to be 0.01 (as in SSD paper)
 
         # box_utils.plot_ious(gt_boxes, preds[1], image, labels=preds[0], confidences=preds[2])
 
@@ -421,8 +421,6 @@ def evaluate(model, dataset, labels):
 
         gts = np.concatenate([np.expand_dims(gt_labels, axis=1), gt_boxes], axis=-1)  # (label, cx, cy, w, h)  # np.array(gt_labels)[:, None]
         all_gts.append(gts)
-
-        all_preds_gts.append((list(zip(*preds)), list(zip(*[np.array(labels)[gt_labels], gt_boxes]))))
 
     mAP, aps, precisions, recalls = compute_mAP(all_preds, all_gts, labels)
     plot_prec_rec(precisions, recalls, aps, labels)
