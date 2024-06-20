@@ -10,14 +10,16 @@ def create_boxes(scale, aspect_ratio, f):
 	w = scale * np.sqrt(aspect_ratio)
 	h = scale / np.sqrt(aspect_ratio)
 
-	return [[(i + 0.5) / f[1], (j + 0.5) / f[0], w, h] for i in range(f[1]) for j in range(f[0])]
+	return [[(i + 0.5) / f[1], (j + 0.5) / f[0], w, h] for j in range(f[0]) for i in range(f[1])]
 
 
 def default_boxes(k, m, aspect_ratios, f, ep_scales=(0.2, 0.9), im_aspect_ratio=1):
-	scales = np.append(np.linspace(ep_scales[0], ep_scales[1], m), [ep_scales[1] + (ep_scales[1] - ep_scales[0]) / m])
+	scales = np.append(np.linspace(ep_scales[0], ep_scales[1], m), [ep_scales[1] + (ep_scales[1] - ep_scales[0]) / (m - 1)])
 	extr_scale = np.sqrt(scales[k] * scales[k + 1])
 	anchor_boxes = np.array([create_boxes(scales[k], ar / im_aspect_ratio, f) for ar in aspect_ratios] + [create_boxes(extr_scale, 1 / im_aspect_ratio, f)])
 
+	anchor_boxes = np.concatenate([anchor_boxes[0][None], anchor_boxes[-1][None], anchor_boxes[1:-1]], axis=0)  # To match pierluigi's shape
+	anchor_boxes = np.moveaxis(anchor_boxes, 0, 1)
 	# slope = (ep_scales[1] - ep_scales[0]) / (m - 1)
 	# y_intercept = ep_scales[0]
 
@@ -91,7 +93,7 @@ def calculate_iou(boxes1, boxes2):
     return iou
 
 
-def match(boxes1, boxes2, matching_threshold=0.5, neutral_threshold=0.3):
+def match(boxes1, boxes2, matching_threshold=0.5, neutral_threshold=0.5):
 	ious = calculate_iou(boxes1, boxes2)
 	matches = np.argmax(ious, axis=-1)[:, None].tolist()
 	ious[:, matches] = 0  # To ensure matched boxes don't get matched again (needed so that it doesn't get classified as a neutral box too)

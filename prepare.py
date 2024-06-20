@@ -58,7 +58,7 @@ def prepare_training(image_path, gt_boxes, label_indices, augmentations, input_s
     augmented_image_arr, gt_box, labels = augment_data(image_arr, gt_boxes, label_indices, augmentations)
     # box_utils.plot_ious(gt_box, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(augmented_image_arr), mode="RGB"))
 
-    processed_image = preprocess_function(augmented_image_arr)  # Writes over augmented_image_arr (processed_image == augmented_image_arr[:, :, ::-1])
+    # processed_image = preprocess_function(augmented_image_arr)  # Writes over augmented_image_arr (processed_image == augmented_image_arr[:, :, ::-1])
 
     matches, neutral_indices = box_utils.match(gt_box, default_boxes)
 
@@ -75,7 +75,7 @@ def prepare_training(image_path, gt_boxes, label_indices, augmentations, input_s
     confidences[neutral_indices] = np.zeros(label_amount + 1)
 
     gt = np.concatenate([confidences, locations], axis=-1)
-    generated_data = [processed_image, gt]
+    generated_data = [augmented_image_arr, gt]
 
     return generated_data
 
