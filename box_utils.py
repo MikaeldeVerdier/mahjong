@@ -15,7 +15,8 @@ def create_boxes(scale, aspect_ratio, f):
 
 def default_boxes(k, m, aspect_ratios, f, ep_scales=(0.2, 0.9), im_aspect_ratio=1):
 	scales = np.append(np.linspace(ep_scales[0], ep_scales[1], m), [ep_scales[1] + (ep_scales[1] - ep_scales[0]) / m])
-	anchor_boxes = np.array([create_boxes(scales[k], ar / im_aspect_ratio, f) for ar in aspect_ratios] + [create_boxes(scales[k + 1], 1 / im_aspect_ratio, f)])
+	extr_scale = np.sqrt(scales[k] * scales[k + 1])
+	anchor_boxes = np.array([create_boxes(scales[k], ar / im_aspect_ratio, f) for ar in aspect_ratios] + [create_boxes(extr_scale, 1 / im_aspect_ratio, f)])
 
 	# slope = (ep_scales[1] - ep_scales[0]) / (m - 1)
 	# y_intercept = ep_scales[0]
@@ -148,12 +149,15 @@ def plot_ious(gts, boxes, img, labels=None, confidences=None, name="boxes.png", 
 
 
 def calculate_offset(gt, boxes, variances):
-	cx = (gt[0] - boxes[:, 0]) / boxes[:, 2]
-	cy = (gt[1] - boxes[:, 1]) / boxes[:, 3]
-	w = np.log(gt[2] / boxes[:, 2])
-	h = np.log(gt[3] / boxes[:, 3])
+	# cx = (gt[0] - boxes[:, 0]) / boxes[:, 2]
+	# cy = (gt[1] - boxes[:, 1]) / boxes[:, 3]
+	# w = np.log(gt[2] / boxes[:, 2])
+	# h = np.log(gt[3] / boxes[:, 3])
 
-	offset = np.moveaxis([cx, cy, w, h], 0, -1)
+	cxcy = (gt[:2] - boxes[:, :2]) / boxes[:, 2:]
+	wh = np.log(gt[2:] / boxes[:, 2:])
+
+	offset = np.concatenate([cxcy, wh], 1)
 	offset /= variances
 
 	return offset
