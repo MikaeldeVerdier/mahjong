@@ -4,11 +4,13 @@ from prepare import prepare_dataset
 from train import retrain
 from evaluate import evaluate
 
-labels = ["aeroplane", "bicycle", "bird", "boat",
-        "bottle", "bus", "car", "cat",
-        "chair", "cow", "diningtable", "dog",
-        "horse", "motorbike", "person", "pottedplant",
-        "sheep", "sofa", "train", "tvmonitor"]
+labels = [
+    "aeroplane", "bicycle", "bird", "boat",
+    "bottle", "bus", "car", "cat",
+    "chair", "cow", "diningtable", "dog",
+    "horse", "motorbike", "person", "pottedplant",
+    "sheep", "sofa", "train", "tvmonitor"
+]
 label_amount = len(labels)
 
 input_shape = (300, 300, 3)
