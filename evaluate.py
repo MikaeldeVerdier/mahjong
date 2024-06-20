@@ -318,9 +318,7 @@ def compute_prec_rec(tps, fps, total):
     return cum_prec, cum_rec
 
 
-def compute_AP(tps, fps, total, num_recall_points=11):
-    prec, rec = compute_prec_rec(tps, fps, total)
-
+def compute_AP_sample(prec, rec, num_recall_points=11):  # Pre-2010 sample-based AP
     ap = 0
     for t in np.linspace(0, 1, num_recall_points, endpoint=True):
         cum_prec_threshed = prec[rec >= t]
@@ -333,10 +331,20 @@ def compute_AP(tps, fps, total, num_recall_points=11):
         ap += precision
     ap /= num_recall_points
 
-    return ap, prec, rec
+    return ap
 
 
-def compute_mAP(all_preds, all_gts, labels, matching_threshold=0.5):  # Sample-based 2012 mAP (based on https://github.com/pierluigiferrari/ssd_keras/blob/master/eval_utils/average_precision_evaluator.py)
+def compute_AP_integration(prec, rec):  # Post-2010 integration-based AP
+    unique_rec, unique_rec_ind = np.unique(rec, return_index=True)
+
+    interpolated_precision = np.maximum.accumulate(prec[unique_rec_ind][::-1])[::-1]
+    recall_diff = np.append(np.diff(unique_rec), [0])
+
+    ap = np.sum(interpolated_precision * recall_diff)
+
+    return ap
+
+def compute_mAP(all_preds, all_gts, labels, matching_threshold=0.5):
     aps = []
     cum_precs = []
     cum_recs = []
@@ -349,9 +357,9 @@ def compute_mAP(all_preds, all_gts, labels, matching_threshold=0.5):  # Sample-b
     for label_index in range(len(labels)):
         preds = np.array(all_preds[label_index])
         if not len(preds):
-            # aps.append(0)  # class is ignore for mAP
+            # aps.append(0)  # class is ignored for mAP
             cum_precs.append([])
-            cum_recs.append(cum_recs.append([]))
+            cum_recs.append([])
 
             continue
 
@@ -392,7 +400,9 @@ def compute_mAP(all_preds, all_gts, labels, matching_threshold=0.5):  # Sample-b
         cum_tp = np.cumsum(tp)
         cum_fp = np.cumsum(fp)
 
-        ap, prec, rec = compute_AP(cum_tp, cum_fp, num_gts[label_index])
+        prec, rec = compute_prec_rec(cum_tp, cum_fp, num_gts[label_index])
+        ap = compute_AP_integration(prec, rec)
+
         aps.append(ap)
         cum_precs.append(prec)
         cum_recs.append(rec)

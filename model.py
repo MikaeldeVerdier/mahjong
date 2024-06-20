@@ -170,7 +170,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 	def log_loss(self, y_true, y_pred):
 		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
 
-		y_pred = tf.maximum(y_pred, 1e-10)
+		y_pred = tf.maximum(y_pred, 1e-15)
 		log_loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
 
 		return log_loss
@@ -182,9 +182,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		square_loss = 0.5 * (y_true - y_pred) ** 2
 		l1_loss = tf.where(tf.less(absolute_loss, 1.0), square_loss, absolute_loss - 0.5)
 
-		return tf.reduce_mean(l1_loss, axis=-1)  # ORIGINALLY: tf.reduce_sum(l1_loss, axis=-1)
+		return tf.reduce_sum(l1_loss, axis=-1)  # ORIGINALLY: tf.reduce_sum(l1_loss, axis=-1)
 
-	"""
 	def ssd_loss(self, y_true, y_pred):
 		y_true = tf.cast(y_true, tf.float32)
 		y_pred = tf.cast(y_pred, tf.float32)
@@ -224,8 +223,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
 
 		return loss
-	"""
 
+	"""
 	def ssd_loss(self, y_true, y_pred):
 		y_true = tf.cast(y_true, tf.float32)
 		y_pred = tf.cast(y_pred, tf.float32)
@@ -278,6 +277,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		# loss = tf.reduce_mean(loss)
 
 		return loss
+	"""
 
 	"""
 	def postprocessing(self, boxes, scores, max_output_size=50, iou_threshold=0.5, score_threshold=0.1):
