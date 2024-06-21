@@ -6,17 +6,20 @@ import config
 
 # All functions assume centroids for bounding boxes (except convert_to_centroids)
 
-def create_boxes(scale, aspect_ratio, f):
+def create_boxes(scale, aspect_ratio, f, step_wh):
 	w = scale * np.sqrt(aspect_ratio)
 	h = scale / np.sqrt(aspect_ratio)
 
-	return [[(i + 0.5) / f[1], (j + 0.5) / f[0], w, h] for j in range(f[0]) for i in range(f[1])]
+	return [[(i + 0.5) * step_wh[1], (j + 0.5) * step_wh[0], w, h] for j in range(f[0]) for i in range(f[1])]
 
 
-def default_boxes(k, m, aspect_ratios, f, ep_scales=(0.2, 0.9), im_aspect_ratio=1):
-	scales = np.append(np.linspace(ep_scales[0], ep_scales[1], m), [ep_scales[1] + (ep_scales[1] - ep_scales[0]) / (m - 1)])
+def default_boxes(k, aspect_ratios, scales, f, steps=None, im_aspect_ratio=1):
+	if steps is None:
+		steps = [1 / f[0], 1 / f[1]]
+	# scales = np.append(np.linspace(ep_scales[0], ep_scales[1], m), [ep_scales[1] + (ep_scales[1] - ep_scales[0]) / (m - 1)])
+
 	extr_scale = np.sqrt(scales[k] * scales[k + 1])
-	anchor_boxes = np.array([create_boxes(scales[k], ar / im_aspect_ratio, f) for ar in aspect_ratios] + [create_boxes(extr_scale, 1 / im_aspect_ratio, f)])
+	anchor_boxes = np.array([create_boxes(scales[k], ar / im_aspect_ratio, f, steps) for ar in aspect_ratios] + [create_boxes(extr_scale, 1 / im_aspect_ratio, f, steps)])
 
 	anchor_boxes = np.concatenate([anchor_boxes[0][None], anchor_boxes[-1][None], anchor_boxes[1:-1]], axis=0)  # To match pierluigi's shape
 	anchor_boxes = np.moveaxis(anchor_boxes, 0, 1)

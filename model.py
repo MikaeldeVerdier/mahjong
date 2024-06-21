@@ -129,18 +129,32 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 			(1, 2, 0.5),
 			(1, 2, 0.5)
 		]
+
+		# def calc_scale(min_scale, max_scale):
+		# 	return np.append(np.linspace(min_scale, max_scale, len(outputs)), [min_scale + (max_scale - min_scale) / (len(outputs) - 1)])
 		scales = [
-			(0.1, 0.9),
-			(0.1, 0.9),
-			(0.1, 0.9),
-			(0.1, 0.9),
-			(0.1, 0.9),
-			(0.1, 0.9),
+			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],  # from luigi (mine: s(0.1, 0.9))
+			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],
+			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],
+			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],
+			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],
+			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05]
+		]
+
+		def calc_step(val):
+			return [val / self.input_shape[0], val / self.input_shape[1]]
+		steps = [
+			calc_step(8),  # from luigi (mine: None)
+			calc_step(16),
+			calc_step(32),
+			calc_step(64),
+			calc_step(100),
+			calc_step(300),
 		]
 
 		head_outputs = [[], []]
-		for k, (output, aspect_ratio, scale) in enumerate(zip(outputs, aspect_ratios, scales), 1):
-			defaults = box_utils.default_boxes(k - 1, len(outputs), aspect_ratio, output.shape[1:3], ep_scales=scale, im_aspect_ratio=im_aspect_ratio)
+		for k, (output, aspect_ratio, scale, step) in enumerate(zip(outputs, aspect_ratios, scales, steps), 1):
+			defaults = box_utils.default_boxes(k - 1, aspect_ratio, scale, output.shape[1:3], steps=step, im_aspect_ratio=im_aspect_ratio)
 			# defaults = default_boxes(k, len(outputs), aspect_ratios, output.shape[1:3])
 			self.default_boxes = np.concatenate([self.default_boxes, defaults.reshape(-1, 4)])
 
