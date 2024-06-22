@@ -3,11 +3,11 @@ import tensorflow as tf
 from keras.layers import Layer
 
 class L2Normalization(Layer):
-    def __init__(self, gamma_init=1, axis=-1):
+    def __init__(self, gamma_init=1, axis=-1, **kwargs):
         self.axis = axis
         self.gamma_init = gamma_init
 
-        super(L2Normalization, self).__init__()
+        super(L2Normalization, self).__init__(**kwargs)
 
     def build(self, input_shape):
         gamma = self.gamma_init * np.ones((input_shape[self.axis],), dtype=np.float32)

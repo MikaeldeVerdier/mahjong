@@ -133,7 +133,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		# def calc_scale(min_scale, max_scale):
 		# 	return np.append(np.linspace(min_scale, max_scale, len(outputs)), [min_scale + (max_scale - min_scale) / (len(outputs) - 1)])
 		scales = [
-			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],  # from luigi (mine: s(0.1, 0.9))
+			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],  # from luigi (mine: calc_scale(0.1, 0.9) (for this layer and after that calc_scale(0.2, 0.9)))
 			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],
 			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],
 			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],
@@ -164,11 +164,12 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 			class_pred = Conv2D(filters=defaults.shape[1] * (self.class_amount + 1), kernel_size=(3, 3), padding="same", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(output)
 			class_pred = Reshape((-1, self.class_amount + 1))(class_pred)
-			class_pred = Activation("softmax")(class_pred)
 			head_outputs[1].append(class_pred)
 
 		location_predictions = Concatenate(axis=1)(head_outputs[0])
-		class_predictions = Concatenate(axis=1)(head_outputs[1])
+
+		class_preds = Concatenate(axis=1)(head_outputs[1])
+		class_predictions = Activation("softmax")(class_preds)
 
 		output = Concatenate(axis=-1)([class_predictions, location_predictions])
 
