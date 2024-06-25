@@ -8,13 +8,12 @@ from keras.utils import plot_model
 from keras.applications.vgg16 import preprocess_input
 # from keras.callbacks import TensorBoard
 from keras.layers import Input, Activation, Concatenate, Conv2D, Reshape, MaxPooling2D, ZeroPadding2D
-from keras.losses import CategoricalCrossentropy, Huber
+# from keras.losses import CategoricalCrossentropy, Huber
 # from keras.metrics import MeanSquaredError, Accuracy
 from keras.models import Model, load_model
 from keras.optimizers import SGD
 from keras.regularizers import L2
-from tensorflow.python.keras.utils import data_utils
-import keras.backend as K
+# from tensorflow.python.keras.utils import data_utils
 
 import box_utils
 import config
@@ -384,7 +383,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 			f.write(json.dumps(self.default_boxes.tolist()))
 
 	def load_model(self, name):
-		self.model = load_model(f"{config.SAVE_FOLDER_PATH}/{name}", custom_objects={"ssd_loss": self.ssd_loss, "K": K})
+		self.model = load_model(f"{config.SAVE_FOLDER_PATH}/{name}", custom_objects={"ssd_loss": self.ssd_loss})
 
 		with open(f"{config.SAVE_FOLDER_PATH}/save.json", "r") as f:
 			self.metrics = json.loads(f.read())

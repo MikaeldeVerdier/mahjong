@@ -18,7 +18,7 @@ fi
 
 echo "Downloading VGG16 weights ..."
 # Download the data.
-curl -L "https://drive.usercontent.google.com/u/0/uc?id=1sBmajn6vOE7qJ8GnxUJt4fGPuffVUZox&export=download" -o VGG_ILSVRC_16_layers_fc_reduced.h5
+curl -Lk "https://drive.usercontent.google.com/u/0/uc?id=1sBmajn6vOE7qJ8GnxUJt4fGPuffVUZox&export=download" -o VGG_ILSVRC_16_layers_fc_reduced.h5
 echo "Done downloading."
 
 end=`date +%s`
