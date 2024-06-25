@@ -14,6 +14,7 @@ from keras.models import Model, load_model
 from keras.optimizers import SGD
 from keras.regularizers import L2
 from tensorflow.python.keras.utils import data_utils
+import keras.backend as K
 
 import box_utils
 import config
@@ -41,34 +42,38 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		processed_input = self.preprocess_function(input_layer)
 
-		conv1_1 = Conv2D(64, (3, 3), activation="relu", padding="same", name="block1_conv1", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(processed_input)
-		conv1_2 = Conv2D(64, (3, 3), activation="relu", padding="same", name="block1_conv2", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv1_1)
-		pool1 = MaxPooling2D((2, 2), strides=(2, 2), name="block1_pool", padding="same")(conv1_2)
+		conv1_1 = Conv2D(64, (3, 3), activation="relu", padding="same", name="conv1_1", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(processed_input)
+		conv1_2 = Conv2D(64, (3, 3), activation="relu", padding="same", name="conv1_2", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv1_1)
+		pool1 = MaxPooling2D((2, 2), strides=(2, 2), name="pool1", padding="same")(conv1_2)
 
-		conv2_1 = Conv2D(128, (3, 3), activation="relu", padding="same", name="block2_conv1", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(pool1)
-		conv2_2 = Conv2D(128, (3, 3), activation="relu", padding="same", name="block2_conv2", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv2_1)
-		pool2 = MaxPooling2D((2, 2), strides=(2, 2), name="block2_pool", padding="same")(conv2_2)
+		conv2_1 = Conv2D(128, (3, 3), activation="relu", padding="same", name="conv2_1", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(pool1)
+		conv2_2 = Conv2D(128, (3, 3), activation="relu", padding="same", name="conv2_2", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv2_1)
+		pool2 = MaxPooling2D((2, 2), strides=(2, 2), name="pool2", padding="same")(conv2_2)
 
-		conv3_1 = Conv2D(256, (3, 3), activation="relu", padding="same", name="block3_conv1", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(pool2)
-		conv3_2 = Conv2D(256, (3, 3), activation="relu", padding="same", name="block3_conv2", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv3_1)
-		conv3_3 = Conv2D(256, (3, 3), activation="relu", padding="same", name="block3_conv3", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv3_2)
-		pool3 = MaxPooling2D((2, 2), strides=(2, 2), name="block3_pool", padding="same")(conv3_3)
+		conv3_1 = Conv2D(256, (3, 3), activation="relu", padding="same", name="conv3_1", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(pool2)
+		conv3_2 = Conv2D(256, (3, 3), activation="relu", padding="same", name="conv3_2", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv3_1)
+		conv3_3 = Conv2D(256, (3, 3), activation="relu", padding="same", name="conv3_3", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv3_2)
+		pool3 = MaxPooling2D((2, 2), strides=(2, 2), name="pool3", padding="same")(conv3_3)
 
-		conv4_1 = Conv2D(512, (3, 3), activation="relu", padding="same", name="block4_conv1", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(pool3)
-		conv4_2 = Conv2D(512, (3, 3), activation="relu", padding="same", name="block4_conv2", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv4_1)
-		conv4_3 = Conv2D(512, (3, 3), activation="relu", padding="same", name="block4_conv3", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv4_2)
-		pool4 = MaxPooling2D((2, 2), strides=(2, 2), name="block4_pool", padding="same")(conv4_3)
+		conv4_1 = Conv2D(512, (3, 3), activation="relu", padding="same", name="conv4_1", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(pool3)
+		conv4_2 = Conv2D(512, (3, 3), activation="relu", padding="same", name="conv4_2", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv4_1)
+		conv4_3 = Conv2D(512, (3, 3), activation="relu", padding="same", name="conv4_3", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv4_2)
+		pool4 = MaxPooling2D((2, 2), strides=(2, 2), name="pool4", padding="same")(conv4_3)
 
-		conv5_1 = Conv2D(512, (3, 3), activation="relu", padding="same", name="block5_conv1", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(pool4)
-		conv5_2 = Conv2D(512, (3, 3), activation="relu", padding="same", name="block5_conv2", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv5_1)
-		conv5_3 = Conv2D(512, (3, 3), activation="relu", padding="same", name="block5_conv3", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv5_2)
+		conv5_1 = Conv2D(512, (3, 3), activation="relu", padding="same", name="conv5_1", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(pool4)
+		conv5_2 = Conv2D(512, (3, 3), activation="relu", padding="same", name="conv5_2", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv5_1)
+		conv5_3 = Conv2D(512, (3, 3), activation="relu", padding="same", name="conv5_3", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv5_2)
+		pool5 = MaxPooling2D(pool_size=(3, 3), strides=(1, 1), name="pool5", padding="same")(conv5_3)
 
-		model = Model(inputs=input_layer, outputs=conv5_3)
+		fc6 = Conv2D(1024, (3, 3), activation="relu", padding="same", dilation_rate=(6, 6), name="fc6", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(pool5)
+		fc7 = Conv2D(1024, (1, 1), activation="relu", padding="same", name="fc7", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(fc6)
 
-		weights_path_no_top = ("https://storage.googleapis.com/tensorflow/keras-applications/vgg16/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5")
-		weights_path = data_utils.get_file("vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5", weights_path_no_top, cache_subdir="models", file_hash="6d6bbae143d832006294945121d1f1fc")
+		model = Model(inputs=input_layer, outputs=fc7)
 
-		model.load_weights(weights_path, by_name=True)
+		# weights_path_no_top = ("https://storage.googleapis.com/tensorflow/keras-applications/vgg16/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5")
+		# self.weights_path = data_utils.get_file("vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5", weights_path_no_top, cache_subdir="models", file_hash="6d6bbae143d832006294945121d1f1fc")
+
+		model.load_weights("vgg16_weights/VGG_ILSVRC_16_layers_fc_reduced.h5", by_name=True)
 
 		return model
 
@@ -86,18 +91,14 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		outputs = []
 
-		x = base_network.get_layer("block4_conv3").output
+		x = base_network.get_layer("conv4_3").output
 		x = L2Normalization(gamma_init=20)(x)
 		outputs.append(x)
 
-		x = base_network.get_layer("block5_conv3").output
-
-		x = MaxPooling2D(pool_size=(3, 3), strides=(1, 1), padding="same")(x)
-
-		# Auxiliary layers
-		x = Conv2D(filters=1024, kernel_size=(3, 3), padding="same", dilation_rate=(6, 6), activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)  # tf.nn.atrous_conv2d (https://www.tensorflow.org/api_docs/python/tf/nn/atrous_conv2d)?
-		x = Conv2D(filters=1024, kernel_size=(1, 1), padding="same", activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
+		x = base_network.get_layer("conv5_3").output
 		outputs.append(x)
+
+		x = base_network.get_layer("fc7").output
 
 		x = Conv2D(filters=256, kernel_size=(1, 1), padding="same", activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
 		x = ZeroPadding2D(padding=((1, 1), (1, 1)))(x)
@@ -177,7 +178,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		self.model.compile(loss=self.ssd_loss, optimizer=SGD(learning_rate=learning_rate, momentum=momentum))
 
 		self.plot_model()
-		self.model.summary()
+		# self.model.summary()
 
 		self.metrics = {"loss": [], "val_loss": []}  # , "locations_mean_squared_error": [], "confidences_accuracy": []}
 
@@ -383,7 +384,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 			f.write(json.dumps(self.default_boxes.tolist()))
 
 	def load_model(self, name):
-		self.model = load_model(f"{config.SAVE_FOLDER_PATH}/{name}", custom_objects={"ssd_loss": self.ssd_loss})
+		self.model = load_model(f"{config.SAVE_FOLDER_PATH}/{name}", custom_objects={"ssd_loss": self.ssd_loss, "K": K})
 
 		with open(f"{config.SAVE_FOLDER_PATH}/save.json", "r") as f:
 			self.metrics = json.loads(f.read())
@@ -441,8 +442,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		# x = self.preprocess_function(inp)
 
 		preds = self.model(inp)
-		class_predictions = preds[:, :, :-4]
-		location_predictions = preds[:, :, -4:]
+		class_predictions = preds[:, :, :-12]
+		location_predictions = preds[:, :, -12:-8]
 
 		decoder_model = self.create_decoder_model(variances)
 		confs, locs = decoder_model([class_predictions, location_predictions])
@@ -455,7 +456,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 	def create_base_model(self, variances):  # A bit weird to have partial generality. Should really probably be a staticmethod (same for all of these)
 		decoded_model = self.create_decoded_tfmodel(variances)
 
-		mlmodel = ct.convert(decoded_model, inputs=[ct.ImageType("image", shape=(1,) + self.input_shape)])
+		mlmodel = ct.convert(decoded_model, inputs=[ct.ImageType("image", shape=(1,) + self.input_shape)], source="tensorflow")
 
 		spec = mlmodel.get_spec()
 
@@ -700,5 +701,27 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		label_confs = np.max(confidences, axis=-1)
 
 		label_infos = [predicted_labels, locations, label_confs]
+
+		return label_infos
+
+	def inference2(self, image, labels, confidence_threshold=0.25):
+		from imp_model import DecodeDetections
+		preds = self.model.predict(np.array(image)[None])
+		
+		decoded = DecodeDetections(confidence_thresh=0.2,
+                                                iou_threshold=0.45,
+                                                top_k=200,
+                                                nms_max_output_size=400,
+                                                coords="centroids",
+                                                normalize_coords=False,
+                                                img_height=300,
+                                                img_width=300,
+                                                name='decoded_predictions')(preds).numpy()[0]
+
+		predicted_labels = np.array([labels[int(val) - 1] for val in decoded[:, 0]])
+		predicted_confidences = decoded[:, 1]
+		predicted_locations = decoded[:, 2:]
+
+		label_infos = [predicted_labels, predicted_locations, predicted_confidences]
 
 		return label_infos
