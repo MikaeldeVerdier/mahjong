@@ -4,3 +4,5 @@ __pycache__/
 save_folder/
 dataset/data*
 *VOCdevkit/
+vgg16_weights/*
+!vgg16_weights/vgg16_weights.sh
