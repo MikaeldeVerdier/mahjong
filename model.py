@@ -441,8 +441,8 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		# x = self.preprocess_function(inp)
 
 		preds = self.model(inp)
-		class_predictions = preds[:, :, :-12]
-		location_predictions = preds[:, :, -12:-8]
+		class_predictions = preds[:, :, :-4]
+		location_predictions = preds[:, :, -4:]
 
 		decoder_model = self.create_decoder_model(variances)
 		confs, locs = decoder_model([class_predictions, location_predictions])
