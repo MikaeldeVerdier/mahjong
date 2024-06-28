@@ -84,7 +84,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		# base_network.layers[-1].strides = (1, 1)
 
 		base_network = self.build_base(kernel_initializer=kernel_initializer)
-		base_network.trainable = False
+		base_network.trainable = True
 		# for layer in base_network.layers:
 		# 	layer.trainable = False
 
@@ -576,7 +576,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		return decoder_model
 	"""
 
-	def create_nms_model(self, previous_model, iou_threshold, conf_threshold, labels):
+	def create_nms_model(self, previous_model, iou_threshold, conf_threshold, max_num_preds, labels):
 		nms_spec = ct.proto.Model_pb2.Model()
 		nms_spec.specificationVersion = 5
 
@@ -597,7 +597,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 			ma_type = nms_spec.description.output[i].type.multiArrayType
 			ma_type.shapeRange.sizeRanges.add()
 			ma_type.shapeRange.sizeRanges[0].lowerBound = 0
-			ma_type.shapeRange.sizeRanges[0].upperBound = -1
+			ma_type.shapeRange.sizeRanges[0].upperBound = max_num_preds
 			ma_type.shapeRange.sizeRanges.add()
 			ma_type.shapeRange.sizeRanges[1].lowerBound = nms_output_sizes[i]
 			ma_type.shapeRange.sizeRanges[1].upperBound = nms_output_sizes[i]
@@ -649,14 +649,14 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		return pipeline_model
 
-	def convert_to_mlmodel(self, labels, iou_threshold=0.45, conf_threshold=0.25, variances=config.VARIANCES):
+	def convert_to_mlmodel(self, labels, iou_threshold=0.45, conf_threshold=0.25, max_num_preds=200, variances=config.VARIANCES):
 		self.iou_threshold = iou_threshold
 		self.conf_threshold = conf_threshold
 
 		# mlmodel = self.create_base_model()
 		# decoder_model = self.build_decoder()
 		mlmodel = self.create_base_model(variances)
-		nms_model = self.create_nms_model(mlmodel, iou_threshold, conf_threshold, labels)
+		nms_model = self.create_nms_model(mlmodel, iou_threshold, conf_threshold, max_num_preds, labels)
 		
 		self.mlmodel = self.create_pipeline([mlmodel, nms_model])
 	

@@ -344,7 +344,7 @@ def compute_AP_integration(prec, rec):  # Post-2010 integration-based AP
 
     return ap
 
-def compute_mAP(all_preds, all_gts, labels, matching_threshold=0.5):
+def compute_mAP(all_preds, all_gts, labels, AP_type, matching_threshold):
     aps = []
     cum_precs = []
     cum_recs = []
@@ -401,7 +401,10 @@ def compute_mAP(all_preds, all_gts, labels, matching_threshold=0.5):
         cum_fp = np.cumsum(fp)
 
         prec, rec = compute_prec_rec(cum_tp, cum_fp, num_gts[label_index])
-        ap = compute_AP_integration(prec, rec)
+        if AP_type == "sample":
+            ap = compute_AP_sample(prec, rec)
+        else:
+            ap = compute_AP_integration(prec, rec)
 
         aps.append(ap)
         cum_precs.append(prec)
@@ -412,7 +415,7 @@ def compute_mAP(all_preds, all_gts, labels, matching_threshold=0.5):
     return mAP, aps, cum_precs, cum_recs
 
 
-def evaluate(model, dataset, labels):
+def evaluate(model, dataset, labels, AP_type="integrate", confidence_threshold=0.5):
     all_preds = [[] for _ in labels]  # Entry per label
     all_gts = []  # Entry per image
 
@@ -432,7 +435,7 @@ def evaluate(model, dataset, labels):
         gts = np.concatenate([np.expand_dims(gt_labels, axis=1), gt_boxes], axis=-1)  # (label, cx, cy, w, h)  # np.array(gt_labels)[:, None]
         all_gts.append(gts)
 
-    mAP, aps, precisions, recalls = compute_mAP(all_preds, all_gts, labels)
+    mAP, aps, precisions, recalls = compute_mAP(all_preds, all_gts, labels, AP_type, matching_threshold=confidence_threshold)
     plot_prec_rec(precisions, recalls, aps, labels)
 
     return mAP
