@@ -33,7 +33,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		else:
 			self.build_model(lr, momentum)
 
-	def build_base(self, kernel_initializer=None):
+	def build_base(self, kernel_initializer=None):  # Does kernel initalizer matter when we're loading weights?
 		""" A truncated version of VGG16 configuration D """
 		# Credit: https://github.com/Socret360/object-detection-in-keras/blob/master/networks/base_networks/truncated_vgg16.py
 
@@ -179,7 +179,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		self.plot_model()
 		# self.model.summary()
 
-		self.metrics = {"loss": [], "val_loss": []}  # , "locations_mean_squared_error": [], "confidences_accuracy": []}
+		self.metrics = {}
 
 	def log_loss(self, y_true, y_pred):
 		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
@@ -230,9 +230,9 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		cls_neg_loss = tf.reduce_sum(cls_top_neg_losses_2d, axis=-1)
 
 		loc_pos_losses = loc_loss * pos_mask
-		loc_loss = tf.reduce_sum(loc_pos_losses, axis=-1)
+		loc_pos_loss = tf.reduce_sum(loc_pos_losses, axis=-1)
 
-		loss = (cls_pos_loss + cls_neg_loss + tf.constant(self.alpha, dtype=tf.float32) * loc_loss) / tf.maximum(pos_amount, 1.0)
+		loss = (cls_pos_loss + cls_neg_loss + tf.constant(self.alpha, dtype=tf.float32) * loc_pos_loss) / tf.maximum(pos_amount, 1.0)
 		# loss *= tf.cast(pos_amount != 0, tf.float32)  # Shouldn't loss be 0 when there are no positives (according to paper)
 		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
 
@@ -370,8 +370,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		fit = self.model.fit(x, y, epochs=epochs, validation_split=config.VALIDATION_SPLIT, callbacks=callbacks)
 
 		for metric in fit.history:
-			if metric in self.metrics:
-				self.metrics[metric] += fit.history[metric]  # Could be changed to list comprehension
+			self.metrics.setdefault(metric, []).extend(fit.history[metric])  # Could be changed to list comprehension
 
 	def save_model(self, name):
 		self.model.save(f"{config.SAVE_FOLDER_PATH}/{name}")
@@ -398,13 +397,21 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		except ImportError:
 			print("You need to install pydot and graphviz to plot model architecture.")
 
-	def plot_metrics(self):  # Consider adding labels for axis and such
+	def plot_metrics(self, scoped=True):  # Consider adding labels for axis and such
 		_, axs = plt.subplots(len(self.metrics), figsize=(15, 4 * len(self.metrics)))
 
 		for ax, metric in zip(axs, self.metrics):
 			ax.plot(self.metrics[metric], label=metric)
 			ax.set_xscale("linear")
 			ax.legend()
+
+			if scoped:
+				median = np.median(self.metrics[metric])
+				share = 0.1
+				share_metric = int(len(self.metrics[metric]) * share)
+				sorted_metrics = np.sort(self.metrics[metric])
+				variance = np.mean(sorted_metrics[-share_metric:]) - np.mean(sorted_metrics[:share_metric])
+				ax.set_ylim(0, median + variance)
 
 		plt.savefig(f"{config.SAVE_FOLDER_PATH}/metrics.png", dpi=200)
 		plt.close()
