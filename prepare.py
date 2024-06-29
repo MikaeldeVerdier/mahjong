@@ -16,7 +16,7 @@ def preprocess_image(path, input_shape):
     # img = img.convert("RGB")
 
     img = cv2.imread(path)  # Seems to be around 50% faster than PIL
-    img = cv2.resize(img, input_shape[:-1][::-1])
+    img = cv2.resize(img, input_shape[:-1][::-1], interpolation=cv2.INTER_LINEAR)
     img = img[:, :, ::-1]
 
     return img

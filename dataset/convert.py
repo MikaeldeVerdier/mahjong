@@ -13,6 +13,8 @@ class Converter:
         self.roots = roots
 
     def convert_to_createml(self, save_paths, divisions=["train", "val", "test"]):
+        annotations = {division: [] for division in divisions}
+
         for root in self.roots:
             subsets = {}
             for subset in divisions:
@@ -22,7 +24,6 @@ class Converter:
                     with open(subset_layout_path, "r") as subset_layout_file:
                         subsets[subset] = subset_layout_file.read().split("\n")
 
-            annotations = {division: [] for division in divisions}
             annotations_path = os.path.join(root, "Annotations")
 
             for annotation in os.listdir(annotations_path):
@@ -88,5 +89,5 @@ class Converter:
 input_roots = ["VOCdevkit/VOC2007", "VOCdevkit/VOC2012"]
 converter = Converter(input_roots)
 
-output_dirs = ["dataset/data/VOC07+12_all"]
-dataset = converter.convert_to_createml(output_dirs, divisions=["none"])
+output_dirs = ["dataset/data/VOC07+12_trainval"]
+dataset = converter.convert_to_createml(output_dirs, divisions=["trainval"])  # Divisions and output_dirs should have the same length

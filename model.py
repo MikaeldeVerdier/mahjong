@@ -97,7 +97,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		x = base_network.get_layer("conv5_3").output
 		outputs.append(x)
 
-		x = base_network.get_layer("fc7").output
+		x = base_network.output
 
 		x = Conv2D(filters=256, kernel_size=(1, 1), padding="same", activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
 		x = ZeroPadding2D(padding=((1, 1), (1, 1)))(x)
@@ -167,7 +167,6 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 			head_outputs[1].append(class_pred)
 
 		location_predictions = Concatenate(axis=1)(head_outputs[0])
-
 		class_preds = Concatenate(axis=1)(head_outputs[1])
 		class_predictions = Activation("softmax")(class_preds)
 
