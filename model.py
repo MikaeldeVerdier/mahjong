@@ -11,7 +11,7 @@ from keras.layers import Input, Activation, Concatenate, Conv2D, Reshape, MaxPoo
 # from keras.losses import CategoricalCrossentropy, Huber
 # from keras.metrics import MeanSquaredError, Accuracy
 from keras.models import Model, load_model
-from keras.optimizers import SGD
+from keras.optimizers import SGD, Adam
 from keras.regularizers import L2
 # from tensorflow.python.keras.utils import data_utils
 
@@ -174,7 +174,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		output = Concatenate(axis=-1)([class_predictions, location_predictions])
 
 		self.model = Model(inputs=[base_network.input], outputs=[output])
-		self.model.compile(loss=self.ssd_loss, optimizer=SGD(learning_rate=learning_rate, momentum=momentum))
+		self.model.compile(loss=self.ssd_loss, optimizer=Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-8, weight_decay=0))  # SGD(learning_rate=learning_rate, momentum=momentum))
 
 		self.plot_model()
 		# self.model.summary()
