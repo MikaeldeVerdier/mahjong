@@ -7,7 +7,7 @@ from prepare import prepare_training
 def retrain(model, dataset, iteration_amount, epochs, saved_ratio=1):
     for i in range(1, iteration_amount + 1):
         batches = random.sample(dataset, config.BATCH_SIZE)
-        prepared_batches = [prepare_training(batch_img_path, batch_boxes, batch_labels, batch_augmentations, model.input_shape, model.class_amount, model.default_boxes, model.preprocess_function) for batch_img_path, batch_boxes, batch_labels, batch_augmentations in batches]
+        prepared_batches = [prepare_training(batch_img_path, batch_boxes, batch_labels, model.input_shape, model.class_amount, model.default_boxes) for batch_img_path, batch_boxes, batch_labels in batches]
         x, y = zip(*prepared_batches)
 
         model.train(np.array(x), np.array(y), epochs)

@@ -22,28 +22,22 @@ def preprocess_image(path, input_shape):
     return img
 
 
-def augment_data(image, boxes, labels, augmentations):
-    if not len(augmentations):
+def augment_data(image, boxes, labels):
+    if not config.USE_AUGMENTATION:
         return image, boxes, labels
 
-    bgr_image = np.float32(image[:, :, ::-1])  # Equivalent to cv2.cvtColor(image, cv2.RGB2BGR)
-    coords = box_utils.scale_box(box_utils.convert_to_coordinates(boxes), image.shape[:-1])
+    augmentor = augmentation.SSDAugmentation(size=image.shape[0])  # Doesn't support non-square images right now
 
-    result = [bgr_image, coords, labels]
-    for augment in augmentations:
-        result = augment(*result, p=1)
+    bgr_image = image[:, :, ::-1]  # Equivalent to cv2.cvtColor(image, cv2.RGB2BGR)
+    coords = box_utils.convert_to_coordinates(boxes)
 
-    if result[0].shape != image.shape:
-        resize_func = augmentation.resize_to_fixed_size(image.shape[0], image.shape[1])
-        result = resize_func(*result)
-
-    transformed_img, transformed_boxes, transformed_labels = result
+    transformed_img, transformed_boxes, transformed_labels = augmentor(bgr_image, coords, np.array(labels))
 
     if transformed_boxes.shape == (0,):
         transformed_boxes = np.empty(shape=(0, 4))
     
     rgb_image = transformed_img[:, :, ::-1]
-    centroids = box_utils.convert_to_centroids(box_utils.scale_box(transformed_boxes, (1 / image.shape[0], 1 / image.shape[1])))
+    centroids = box_utils.convert_to_centroids(transformed_boxes)
     data = [rgb_image, centroids, transformed_labels]
 
     # box_utils.plot_ious(centroids, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(rgb_image), mode="RGB"))
@@ -51,11 +45,11 @@ def augment_data(image, boxes, labels, augmentations):
     return data
 
 
-def prepare_training(image_path, gt_boxes, label_indices, augmentations, input_shape, label_amount, default_boxes, preprocess_function):
+def prepare_training(image_path, gt_boxes, label_indices, input_shape, label_amount, default_boxes):
     image_arr = preprocess_image(image_path, input_shape)
     # image_arr = np.array(image)
 
-    augmented_image_arr, gt_box, labels = augment_data(image_arr, gt_boxes, label_indices, augmentations)
+    augmented_image_arr, gt_box, labels = augment_data(image_arr, gt_boxes, label_indices)
     # box_utils.plot_ious(gt_box, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(augmented_image_arr), mode="RGB"))
 
     # processed_image = preprocess_function(augmented_image_arr)  # Writes over augmented_image_arr (processed_image == augmented_image_arr[:, :, ::-1])
@@ -88,18 +82,6 @@ def prepare_testing(image_path, gt_boxes, label_indices, input_shape):
 
 
 def prepare_dataset(path, labels, training_ratio=0):
-    augmentations = [
-        augmentation.random_contrast,
-        augmentation.random_hue,
-        augmentation.random_lighting_noise,
-        augmentation.random_saturation,
-        augmentation.random_expand,  # Is slow, could decrease max_ratio to make faster
-        augmentation.random_crop,
-        # augmentation.random_vertical_flip,  # Not actually used by pierluigi
-        augmentation.random_horizontal_flip
-    ]
-    probabilities = [0.5] * len(augmentations)
-
     dataset = [[], []]
     annotations = files.load(path)
 
@@ -119,18 +101,6 @@ def prepare_dataset(path, labels, training_ratio=0):
 
             confidences.append(labels.index(label["label"]))
 
-        if i < amount_training:
-            if not config.USE_AUGMENTATION:
-                dataset[0].append([img_path, locations, confidences, []])
-
-                continue
-
-            mask = np.random.rand(len(augmentations)) < probabilities
-            chosen_augmentations = np.array(augmentations, dtype=object)[mask]  # [augmentation_func for augmentation_func, selected in zip(augmentations, mask) if selected]
-
-            new_data = [img_path, locations, confidences, chosen_augmentations]
-            dataset[0].append(new_data)
-        else:
-            dataset[1].append([img_path, locations, confidences])
+        dataset[int(i >= amount_training)].append([img_path, locations, confidences])
 
     return dataset

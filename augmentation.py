@@ -1,459 +1,382 @@
-# All functions in this file are taken from https://towardsdatascience.com/implementing-single-shot-detector-ssd-in-keras-part-iv-data-augmentation-59c9f230a910 (https://github.com/Socret360/object-detection-in-keras)
+# Code in this file is taken from amdegroots implementation (https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py)
 
-import random
-import numpy as np
 import cv2
+import numpy as np
+import types
+from random import choice
+from numpy import random
 
 from box_utils import calculate_iou
 
-def random_brightness(image, bboxes=None, classes=None, min_delta=-32, max_delta=32, p=0.5):
-    """ Changes the brightness of an image by adding/subtracting a delta value to/from each pixel.
-    The image format is assumed to be BGR to match Opencv's standard.
+class Compose(object):
+    """Composes several augmentations together.
     Args:
-        - image: numpy array representing the input image.
-        - bboxes: numpy array representing the bounding boxes.
-        - classes: the list of classes associating with each bounding boxes.
-        - min_delta: minimum delta value.
-        - max_delta: maximum delta value.
-        - p: The probability with which the brightness is changed
-    Returns:
-        - image: The modified image
-        - bboxes: The unmodified bounding boxes
-        - classes: The unmodified bounding boxes
-    Raises:
-        - min_delta is less than -255.0
-        - max_delta is larger than 255.0
-        - p is smaller than zero
-        - p is larger than 1
-    Webpage References:
-        - https://www.telesens.co/2018/06/28/data-augmentation-in-ssd/
-    Code References:
-        - https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py
-    """
-    assert min_delta >= -255.0, "min_delta must be larger than -255.0"
-    assert max_delta <= 255.0, "max_delta must be less than 255.0"
-    assert p >= 0, "p must be larger than or equal to zero"
-    assert p <= 1, "p must be less than or equal to 1"
-
-    if (random.random() > p):
-        return image, bboxes, classes
-
-    temp_image = image.copy()
-    d = random.uniform(min_delta, max_delta)
-    temp_image += d
-    temp_image = np.clip(temp_image, 0, 255)
-    return temp_image, bboxes, classes
-
-
-def random_contrast(image, bboxes=None, classes=None, min_delta=0.5, max_delta=1.5, p=0.5):
-    """ Changes the contrast of an image by increasing/decreasing each pixel by a factor of delta.
-    The image format is assumed to be BGR to match Opencv's standard.
-    Args:
-        - image: numpy array representing the input image.
-        - bboxes: numpy array representing the bounding boxes.
-        - classes: the list of classes associating with each bounding boxes.
-        - min_delta: minimum delta value.
-        - max_delta: maximum delta value.
-        - p: The probability with which the contrast is changed
-    Returns:
-        - image: The modified image
-        - bboxes: The unmodified bounding boxes
-        - classes: The unmodified bounding boxes
-    Raises:
-        - min_delta is less than 0
-        - max_delta is less than min_delta
-        - p is smaller than zero
-        - p is larger than 1
-    Webpage References:
-        - https://www.telesens.co/2018/06/28/data-augmentation-in-ssd/
-    Code References:
-        - https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py
-    """
-    assert min_delta >= 0.0, "min_delta must be larger than zero"
-    assert max_delta >= min_delta, "max_delta must be larger than min_delta"
-    assert p >= 0, "p must be larger than or equal to zero"
-    assert p <= 1, "p must be less than or equal to 1"
-
-    if (random.random() > p):
-        return image, bboxes, classes
-
-    temp_image = image.copy()
-    d = random.uniform(min_delta, max_delta)
-    temp_image *= d
-    temp_image = np.clip(temp_image, 0, 255)
-    return temp_image, bboxes, classes
-
-
-def random_hue(image, bboxes=None, classes=None, min_delta=-18, max_delta=18, p=0.5):
-    """ Changes the Hue of an image by adding/subtracting a delta value
-    to/from each value in the Hue channel of the image. The image format
-    is assumed to be BGR to match Opencv's standard.
-    Args:
-        - image: numpy array representing the input image.
-        - bboxes: numpy array representing the bounding boxes.
-        - classes: the list of classes associating with each bounding boxes.
-        - min_delta: minimum delta value.
-        - max_delta: maximum delta value.
-        - p: The probability with which the Hue is adjusted
-    Returns:
-        - image: The modified image
-        - bboxes: The unmodified bounding boxes
-        - classes: The unmodified bounding boxes
-    Raises:
-        - min_delta is less than -360.0
-        - max_delta is larger than 360.0
-        - p is smaller than zero
-        - p is larger than 1
-    Webpage References:
-        - https://www.telesens.co/2018/06/28/data-augmentation-in-ssd/
-    Code References:
-        - https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py
-    """
-    assert min_delta >= -360.0, "min_delta must be larger than -360.0"
-    assert max_delta <= 360.0, "max_delta must be less than 360.0"
-    assert p >= 0, "p must be larger than or equal to zero"
-    assert p <= 1, "p must be less than or equal to 1"
-
-    if (random.random() > p):
-        return image, bboxes, classes
-
-    temp_image = cv2.cvtColor(np.uint8(image), cv2.COLOR_BGR2HSV)
-    temp_image = np.array(temp_image, dtype=np.float32)
-    d = random.uniform(min_delta, max_delta)
-    temp_image[:, :, 0] += d
-    temp_image = np.clip(temp_image, 0, 360)
-    temp_image = cv2.cvtColor(np.uint8(temp_image), cv2.COLOR_HSV2BGR)
-    temp_image = np.array(temp_image, dtype=np.float32)
-    return temp_image, bboxes, classes
-
-
-def random_lighting_noise(image, bboxes=None, classes=None, p=0.5):
-    """ Changes the lighting of the image by randomly swapping the channels.
-    The image format is assumed to be BGR to match Opencv's standard.
-    Args:
-        - image: numpy array representing the input image.
-        - bboxes: numpy array representing the bounding boxes.
-        - classes: the list of classes associating with each bounding boxes.
-        - p: The probability with which the contrast is changed
-    Returns:
-        - image: The modified image
-        - bboxes: The unmodified bounding boxes
-        - classes: The unmodified bounding boxes
-    Raises:
-        - p is smaller than zero
-        - p is larger than 1
-    Webpage References:
-        - https://www.telesens.co/2018/06/28/data-augmentation-in-ssd/
-    Code References:
-        - https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py
-    """
-    assert p >= 0, "p must be larger than or equal to zero"
-    assert p <= 1, "p must be less than or equal to 1"
-
-    if (random.random() > p):
-        return image, bboxes, classes
-
-    temp_image = image.copy()
-    perms = [
-        (0, 1, 2),
-        (0, 2, 1),
-        (1, 0, 2),
-        (1, 2, 0),
-        (2, 0, 1),
-        (2, 1, 0)
-    ]
-    selected_perm = random.randint(0, len(perms) - 1)
-    perm = perms[selected_perm]
-    temp_image = temp_image[:, :, perm]
-    return temp_image, bboxes, classes
-
-
-def random_saturation(image, bboxes=None, classes=None, min_delta=0.5, max_delta=1.5, p=0.5):
-    """ Changes the saturation of an image by increasing/decreasing each
-    value in the saturation channel by a factor of delta. The image format
-    is assumed to be BGR to match Opencv's standard.
-    Args:
-        - image: numpy array representing the input image.
-        - bboxes: numpy array representing the bounding boxes.
-        - classes: the list of classes associating with each bounding boxes.
-        - min_delta: minimum delta value.
-        - max_delta: maximum delta value.
-    Returns:
-        - image: The modified image
-        - bboxes: The unmodified bounding boxes
-        - classes: The unmodified bounding boxes
-    Raises:
-        - min_delta is less than 0
-        - max_delta is less than min_delta
-        - p is smaller than zero
-        - p is larger than 1
-    Webpage References:
-        - https://www.telesens.co/2018/06/28/data-augmentation-in-ssd/
-    Code References:
-        - https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py
-    """
-    assert min_delta >= 0.0, "min_delta must be larger than zero"
-    assert max_delta >= min_delta, "max_delta must be larger than min_delta"
-    assert p >= 0, "p must be larger than or equal to zero"
-    assert p <= 1, "p must be less than or equal to 1"
-
-    if (random.random() > p):
-        return image, bboxes, classes
-
-    temp_image = cv2.cvtColor(np.uint8(image), cv2.COLOR_BGR2HSV)
-    temp_image = np.array(temp_image, dtype=np.float32)
-    d = random.uniform(min_delta, max_delta)
-    temp_image[:, :, 1] *= d
-    temp_image = cv2.cvtColor(np.uint8(temp_image), cv2.COLOR_HSV2BGR)
-    temp_image = np.array(temp_image, dtype=np.float32)
-    return temp_image, bboxes, classes
-
-
-def random_vertical_flip(image, bboxes, classes, p=0.5):
-    """ Randomly flipped the image vertically. The image format is assumed to be BGR to match Opencv's standard.
-    Args:
-        - image: numpy array representing the input image.
-        - bboxes: numpy array representing the bounding boxes in corners format (xmin, ymin, xmax, ymax).
-        - classes: the list of classes associating with each bounding boxes.
-        - p: The probability with which the image is flipped vertically
-    Returns:
-        - image: The modified image
-        - bboxes: The modified bounding boxes
-        - classes: The unmodified bounding boxes
-    Raises:
-        - p is smaller than zero
-        - p is larger than 1
-    Webpage References:
-        - https://www.kdnuggets.com/2018/09/data-augmentation-bounding-boxes-image-transforms.html/2
-    Code References:
-        - https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py
+        transforms (List[Transform]): list of transforms to compose.
+    Example:
+        >>> augmentations.Compose([
+        >>>     transforms.CenterCrop(10),
+        >>>     transforms.ToTensor(),
+        >>> ])
     """
 
-    assert p >= 0, "p must be larger than or equal to zero"
-    assert p <= 1, "p must be less than or equal to 1"
+    def __init__(self, transforms):
+        self.transforms = transforms
 
-    if (random.random() > p):
-        return image, bboxes, classes
-
-    temp_bboxes = bboxes.copy()
-    image_center = np.array(image.shape[:2])[::-1]/2
-    image_center = np.hstack((image_center, image_center))
-    temp_bboxes[:, [1, 3]] += 2*(image_center[[1, 3]] - temp_bboxes[:, [1, 3]])
-    boxes_height = abs(temp_bboxes[:, 1] - temp_bboxes[:, 3])
-    temp_bboxes[:, 1] -= boxes_height
-    temp_bboxes[:, 3] += boxes_height
-    return np.array(cv2.flip(np.uint8(image), 0), dtype=np.float32), temp_bboxes, classes
+    def __call__(self, img, boxes=None, labels=None):
+        for t in self.transforms:
+            img, boxes, labels = t(img, boxes, labels)
+        return img, boxes, labels
 
 
-def random_horizontal_flip(image, bboxes, classes, p=0.5):
-    """ Randomly flipped the image horizontally. The image format is assumed to be BGR to match Opencv's standard.
-    Args:
-        - image: numpy array representing the input image.
-        - bboxes: numpy array representing the bounding boxes in corners format (xmin, ymin, xmax, ymax).
-        - classes: the list of classes associating with each bounding boxes.
-        - p: The probability with which the image is flipped horizontally
-    Returns:
-        - image: The modified image
-        - bboxes: The modified bounding boxes
-        - classes: The unmodified bounding boxes
-    Raises:
-        - p is smaller than zero
-        - p is larger than 1
-    Webpage References:
-        - https://www.kdnuggets.com/2018/09/data-augmentation-bounding-boxes-image-transforms.html/2
-    Code References:
-        - https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py
+class Lambda(object):
+    """Applies a lambda as a transform."""
+
+    def __init__(self, lambd):
+        assert isinstance(lambd, types.LambdaType)
+        self.lambd = lambd
+
+    def __call__(self, img, boxes=None, labels=None):
+        return self.lambd(img, boxes, labels)
+
+
+class ConvertFromInts(object):
+    def __call__(self, image, boxes=None, labels=None):
+        return image.astype(np.float32), boxes, labels
+
+
+class SubtractMeans(object):
+    def __init__(self, mean):
+        self.mean = np.array(mean, dtype=np.float32)
+
+    def __call__(self, image, boxes=None, labels=None):
+        image = image.astype(np.float32)
+        image -= self.mean
+        return image.astype(np.float32), boxes, labels
+
+
+class ToAbsoluteCoords(object):
+    def __call__(self, image, boxes=None, labels=None):
+        height, width, channels = image.shape
+        boxes[:, 0] *= width
+        boxes[:, 2] *= width
+        boxes[:, 1] *= height
+        boxes[:, 3] *= height
+
+        return image, boxes, labels
+
+
+class ToPercentCoords(object):
+    def __call__(self, image, boxes=None, labels=None):
+        height, width, channels = image.shape
+        boxes[:, 0] /= width
+        boxes[:, 2] /= width
+        boxes[:, 1] /= height
+        boxes[:, 3] /= height
+
+        return image, boxes, labels
+
+
+class Resize(object):
+    def __init__(self, size=300):
+        self.size = size
+
+    def __call__(self, image, boxes=None, labels=None):
+        image = cv2.resize(image, (self.size,
+                                 self.size))
+        return image, boxes, labels
+
+
+class RandomSaturation(object):
+    def __init__(self, lower=0.5, upper=1.5):
+        self.lower = lower
+        self.upper = upper
+        assert self.upper >= self.lower, "contrast upper must be >= lower."
+        assert self.lower >= 0, "contrast lower must be non-negative."
+
+    def __call__(self, image, boxes=None, labels=None):
+        if random.randint(2):
+            image[:, :, 1] *= random.uniform(self.lower, self.upper)
+
+        return image, boxes, labels
+
+
+class RandomHue(object):
+    def __init__(self, delta=18.0):
+        assert delta >= 0.0 and delta <= 360.0
+        self.delta = delta
+
+    def __call__(self, image, boxes=None, labels=None):
+        if random.randint(2):
+            image[:, :, 0] += random.uniform(-self.delta, self.delta)
+            image[:, :, 0][image[:, :, 0] > 360.0] -= 360.0
+            image[:, :, 0][image[:, :, 0] < 0.0] += 360.0
+        return image, boxes, labels
+
+
+class RandomLightingNoise(object):
+    def __init__(self):
+        self.perms = ((0, 1, 2), (0, 2, 1),
+                      (1, 0, 2), (1, 2, 0),
+                      (2, 0, 1), (2, 1, 0))
+
+    def __call__(self, image, boxes=None, labels=None):
+        if random.randint(2):
+            swap = self.perms[random.randint(len(self.perms))]
+            shuffle = SwapChannels(swap)  # shuffle channels
+            image = shuffle(image)
+        return image, boxes, labels
+
+
+class ConvertColor(object):
+    def __init__(self, current='BGR', transform='HSV'):
+        self.transform = transform
+        self.current = current
+
+    def __call__(self, image, boxes=None, labels=None):
+        if self.current == 'BGR' and self.transform == 'HSV':
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        elif self.current == 'HSV' and self.transform == 'BGR':
+            image = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
+        else:
+            raise NotImplementedError
+        return image, boxes, labels
+
+
+class RandomContrast(object):
+    def __init__(self, lower=0.5, upper=1.5):
+        self.lower = lower
+        self.upper = upper
+        assert self.upper >= self.lower, "contrast upper must be >= lower."
+        assert self.lower >= 0, "contrast lower must be non-negative."
+
+    # expects float image
+    def __call__(self, image, boxes=None, labels=None):
+        if random.randint(2):
+            alpha = random.uniform(self.lower, self.upper)
+            image *= alpha
+        return image, boxes, labels
+
+
+class RandomBrightness(object):
+    def __init__(self, delta=32):
+        assert delta >= 0.0
+        assert delta <= 255.0
+        self.delta = delta
+
+    def __call__(self, image, boxes=None, labels=None):
+        if random.randint(2):
+            delta = random.uniform(-self.delta, self.delta)
+            image += delta
+        return image, boxes, labels
+
+
+class RandomSampleCrop(object):
+    """Crop
+    Arguments:
+        img (Image): the image being input during training
+        boxes (Tensor): the original bounding boxes in pt form
+        labels (Tensor): the class labels for each bbox
+        mode (float tuple): the min and max jaccard overlaps
+    Return:
+        (img, boxes, classes)
+            img (Image): the cropped image
+            boxes (Tensor): the adjusted bounding boxes in pt form
+            labels (Tensor): the class labels for each bbox
     """
-    assert p >= 0, "p must be larger than or equal to zero"
-    assert p <= 1, "p must be less than or equal to 1"
+    def __init__(self):
+        self.sample_options = [
+            # using entire original input image
+            None,
+            # sample a patch s.t. MIN jaccard w/ obj in .1,.3,.4,.7,.9
+            (0.1, None),
+            (0.3, None),
+            (0.7, None),
+            (0.9, None),
+            # randomly sample a patch
+            (None, None),
+        ]
 
-    if (random.random() > p):
-        return image, bboxes, classes
+    def __call__(self, image, boxes=None, labels=None):
+        height, width, _ = image.shape
+        while True:
+            # randomly choose a mode
+            mode = choice(self.sample_options)
+            if mode is None:
+                return image, boxes, labels
 
-    temp_bboxes = bboxes.copy()
-    image_center = np.array(image.shape[:2])[::-1]/2
-    image_center = np.hstack((image_center, image_center))
-    temp_bboxes[:, [0, 2]] += 2*(image_center[[0, 2]] - temp_bboxes[:, [0, 2]])
-    boxes_width = abs(temp_bboxes[:, 0] - temp_bboxes[:, 2])
-    temp_bboxes[:, 0] -= boxes_width
-    temp_bboxes[:, 2] += boxes_width
-    return np.array(cv2.flip(np.uint8(image), 1), dtype=np.float32), temp_bboxes, classes
+            min_iou, max_iou = mode
+            if min_iou is None:
+                min_iou = float('-inf')
+            if max_iou is None:
+                max_iou = float('inf')
+
+            # max trails (50)
+            for _ in range(50):
+                current_image = image
+
+                w = random.uniform(0.3 * width, width)
+                h = random.uniform(0.3 * height, height)
+
+                # aspect ratio constraint b/t .5 & 2
+                if h / w < 0.5 or h / w > 2:
+                    continue
+
+                left = random.uniform(width - w)
+                top = random.uniform(height - h)
+
+                # convert to integer rect x1,y1,x2,y2
+                rect = np.array([int(left), int(top), int(left+w), int(top+h)])
+
+                # calculate IoU (jaccard overlap) b/t the cropped and gt boxes
+                overlap = calculate_iou(boxes, rect[None])
+
+                # is min and max overlap constraint satisfied? if not try again
+                if overlap.min() < min_iou and max_iou < overlap.max():
+                    continue
+
+                # cut the crop from the image
+                current_image = current_image[rect[1]:rect[3], rect[0]:rect[2],
+                                              :]
+
+                # keep overlap with gt box IF center in sampled patch
+                centers = (boxes[:, :2] + boxes[:, 2:]) / 2.0
+
+                # mask in all gt boxes that above and to the left of centers
+                m1 = (rect[0] < centers[:, 0]) * (rect[1] < centers[:, 1])
+
+                # mask in all gt boxes that under and to the right of centers
+                m2 = (rect[2] > centers[:, 0]) * (rect[3] > centers[:, 1])
+
+                # mask in that both m1 and m2 are true
+                mask = m1 * m2
+
+                # have any valid boxes? try again if not
+                if not mask.any():
+                    continue
+
+                # take only matching gt boxes
+                current_boxes = boxes[mask, :].copy()
+
+                # take only matching gt labels
+                current_labels = labels[mask]
+
+                # should we use the box left and top corner or the crop's
+                current_boxes[:, :2] = np.maximum(current_boxes[:, :2],
+                                                  rect[:2])
+                # adjust to crop (by substracting crop's left,top)
+                current_boxes[:, :2] -= rect[:2]
+
+                current_boxes[:, 2:] = np.minimum(current_boxes[:, 2:],
+                                                  rect[2:])
+                # adjust to crop (by substracting crop's left,top)
+                current_boxes[:, 2:] -= rect[:2]
+
+                return current_image, current_boxes, current_labels
 
 
-def random_expand(image, bboxes, classes, min_ratio=1, max_ratio=4, mean=[123, 117, 104] , p=0.5):  # old means = [0.406, 0.456, 0.485] (mean / 255) (IN RGB)
-    """ Randomly expands an image and bounding boxes by a ratio between min_ratio and max_ratio. The image format is assumed to be BGR to match Opencv's standard.
+class Expand(object):
+    def __init__(self, mean):
+        self.mean = mean
+
+    def __call__(self, image, boxes, labels):
+        if random.randint(2):
+            return image, boxes, labels
+
+        height, width, depth = image.shape
+        ratio = random.uniform(1, 4)
+        left = random.uniform(0, width*ratio - width)
+        top = random.uniform(0, height*ratio - height)
+
+        expand_image = np.zeros(
+            (int(height*ratio), int(width*ratio), depth),
+            dtype=image.dtype)
+        expand_image[:, :, :] = self.mean
+        expand_image[int(top):int(top + height),
+                     int(left):int(left + width)] = image
+        image = expand_image
+
+        boxes = boxes.copy()
+        boxes[:, :2] += (int(left), int(top))
+        boxes[:, 2:] += (int(left), int(top))
+
+        return image, boxes, labels
+
+
+class RandomMirror(object):
+    def __call__(self, image, boxes, classes):
+        _, width, _ = image.shape
+        if random.randint(2):
+            image = image[:, ::-1]
+            boxes = boxes.copy()
+            boxes[:, 0::2] = width - boxes[:, 2::-2]
+        return image, boxes, classes
+
+
+class SwapChannels(object):
+    """Transforms a tensorized image by swapping the channels in the order
+     specified in the swap tuple.
     Args:
-        - image: numpy array representing the input image.
-        - bboxes: numpy array representing the bounding boxes.
-        - classes: the list of classes associating with each bounding boxes.
-        - min_ratio: The minimum value to expand the image. Defaults to 1.
-        - max_ratio: The maximum value to expand the image. Defaults to 4.
-        - p: The probability with which the image is expanded
-    Returns:
-        - image: The modified image
-        - bboxes: The modified bounding boxes
-        - classes: The unmodified bounding boxes
-    Raises:
-        - p is smaller than zero
-        - p is larger than 1
-    Webpage References:
-        - https://www.telesens.co/2018/06/28/data-augmentation-in-ssd/
-    Code References:
-        - https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py
+        swaps (int triple): final order of channels
+            eg: (2, 1, 0)
     """
-    assert p >= 0, "p must be larger than or equal to zero"
-    assert p <= 1, "p must be less than or equal to 1"
-    assert min_ratio > 0, "min_ratio must be larger than zero"
-    assert max_ratio > min_ratio, "max_ratio must be larger than min_ratio"
 
-    if (random.random() > p):
-        return image, bboxes, classes
+    def __init__(self, swaps):
+        self.swaps = swaps
 
-    height, width, depth = image.shape
-    ratio = random.uniform(min_ratio, max_ratio)
-    left = random.uniform(0, width * ratio - width)
-    top = random.uniform(0, height * ratio - height)
-    temp_image = np.zeros(
-        (int(height * ratio), int(width * ratio), depth),
-        dtype=image.dtype
-    )
-    temp_image[:, :, :] = mean
-    temp_image[int(top):int(top+height), int(left):int(left+width)] = image
-    temp_bboxes = bboxes.copy()
-    temp_bboxes[:, :2] += (int(left), int(top))
-    temp_bboxes[:, 2:] += (int(left), int(top))
-    return temp_image, temp_bboxes, classes
+    def __call__(self, image):
+        """
+        Args:
+            image (Tensor): image tensor to be transformed
+        Return:
+            a tensor with channels swapped according to swap
+        """
+        # if torch.is_tensor(image):
+        #     image = image.data.cpu().numpy()
+        # else:
+        #     image = np.array(image)
+        image = image[:, :, self.swaps]
+        return image
 
 
-def random_crop(image, bboxes, classes, min_size=0.1, max_size=1, min_ar=1, max_ar=2, overlap_modes=[None, [0.1, None], [0.3, None], [0.7, None], [0.9, None], [None, None]], max_attempts=100, p=0.5):
-    """ Randomly crops a patch from the image.
-    Args:
-        - image: numpy array representing the input image.
-        - bboxes: numpy array representing the bounding boxes.
-        - classes: the list of classes associating with each bounding boxes.
-        - min_size: the maximum size a crop can be
-        - max_size: the maximum size a crop can be
-        - min_ar: the minimum aspect ratio a crop can be
-        - max_ar: the maximum aspect ratio a crop can be
-        - overlap_modes: the list of overlapping modes the function can randomly choose from.
-        - max_attempts: the max number of attempts to generate a patch.
-    Returns:
-        - image: the modified image
-        - bboxes: the modified bounding boxes
-        - classes: the modified classes
-    Webpage References:
-        - https://www.telesens.co/2018/06/28/data-augmentation-in-ssd/
-    Code References:
-        - https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py
-    """
-    assert p >= 0, "p must be larger than or equal to zero"
-    assert p <= 1, "p must be less than or equal to 1"
-    assert min_size > 0, "min_size must be larger than zero."
-    assert max_size <= 1, "max_size must be less than or equals to one."
-    assert max_size > min_size, "max_size must be larger than min_size."
-    assert max_ar > min_ar, "max_ar must be larger than min_ar."
-    assert max_attempts > 0, "max_attempts must be larger than zero."
+class PhotometricDistort(object):
+    def __init__(self):
+        self.pd = [
+            RandomContrast(),
+            ConvertColor(transform='HSV'),
+            RandomSaturation(),
+            RandomHue(),
+            ConvertColor(current='HSV', transform='BGR'),
+            RandomContrast()
+        ]
+        self.rand_brightness = RandomBrightness()
+        self.rand_light_noise = RandomLightingNoise()
 
-    if (random.random() > p):
-        return image, bboxes, classes
-
-    height, width, channels = image.shape
-    overlap_mode = random.choice(overlap_modes)
-
-    if overlap_mode == None:
-        return image, bboxes, classes
-
-    min_iou, max_iou = overlap_mode
-
-    if min_iou == None:
-        min_iou = float(-np.inf)
-
-    if max_iou == None:
-        max_iou = float(np.inf)
-
-    temp_image = image.copy()
-
-    for i in range(max_attempts):
-        crop_w = random.uniform(min_size * width, max_size * width)
-        crop_h = random.uniform(min_size * height, max_size * height)
-        crop_ar = crop_h / crop_w
-
-        if crop_ar < min_ar or crop_ar > max_ar:  # crop ar does not match criteria, next attempt
-            continue
-
-        crop_left = random.uniform(0, width-crop_w)
-        crop_top = random.uniform(0, height-crop_h)
-
-        crop_rect = np.array([crop_left, crop_top, crop_left + crop_w, crop_top + crop_h], dtype=np.float32)
-        crop_rect = np.expand_dims(crop_rect, axis=0)
-        crop_rect = np.tile(crop_rect, (bboxes.shape[0], 1))
-
-        ious = calculate_iou(crop_rect, bboxes)
-
-        if ious.min() < min_iou and ious.max() > max_iou:
-            continue
-
-        bbox_centers = np.zeros((bboxes.shape[0], 2), dtype=np.float32)
-        bbox_centers[:, 0] = (bboxes[:, 0] + bboxes[:, 2]) / 2
-        bbox_centers[:, 1] = (bboxes[:, 1] + bboxes[:, 3]) / 2
-
-        cx_in_crop = (bbox_centers[:, 0] > crop_left) * (bbox_centers[:, 0] < crop_left + crop_w)
-        cy_in_crop = (bbox_centers[:, 1] > crop_top) * (bbox_centers[:, 1] < crop_top + crop_h)
-        boxes_in_crop = cx_in_crop * cy_in_crop
-
-        if not boxes_in_crop.any():
-            continue
-
-        temp_image = temp_image[int(crop_top): int(crop_top+crop_h), int(crop_left): int(crop_left+crop_w), :]
-        temp_classes = np.array(classes)
-        temp_classes = temp_classes[boxes_in_crop]
-        temp_bboxes = bboxes[boxes_in_crop]
-        crop_rect = np.array([crop_left, crop_top, crop_left + crop_w, crop_top + crop_h], dtype=np.float32)
-        crop_rect = np.expand_dims(crop_rect, axis=0)
-        crop_rect = np.tile(crop_rect, (temp_bboxes.shape[0], 1))
-        temp_bboxes[:, :2] = np.maximum(temp_bboxes[:, :2], crop_rect[:, :2])  # if bboxes top left is out of crop then use crop's xmin, ymin
-        temp_bboxes[:, :2] -= crop_rect[:, :2]  # translate xmin, ymin to fit crop
-        temp_bboxes[:, 2:] = np.minimum(temp_bboxes[:, 2:], crop_rect[:, 2:])
-        temp_bboxes[:, 2:] -= crop_rect[:, :2]  # translate xmax, ymax to fit crop
-        return temp_image, temp_bboxes, temp_classes.tolist()
-
-    return image, bboxes, classes
+    def __call__(self, image, boxes, labels):
+        im = image.copy()
+        im, boxes, labels = self.rand_brightness(im, boxes, labels)
+        if random.randint(2):
+            distort = Compose(self.pd[:-1])
+        else:
+            distort = Compose(self.pd[1:])
+        im, boxes, labels = distort(im, boxes, labels)
+        return self.rand_light_noise(im, boxes, labels)
 
 
-def resize_to_fixed_size(width, height):
-    """ Resize the input image and bounding boxes to fixed size.
+class SSDAugmentation(object):
+    def __init__(self, size=300, mean=(104, 117, 123)):
+        self.mean = mean
+        self.size = size
+        self.augment = Compose([
+            ConvertFromInts(),
+            ToAbsoluteCoords(),
+            PhotometricDistort(),
+            Expand(self.mean),
+            RandomSampleCrop(),
+            RandomMirror(),
+            ToPercentCoords(),
+            Resize(self.size),
+            # SubtractMeans(self.mean)
+        ])
 
-    Args:
-        - image: numpy array representing the input image.
-        - bboxes: numpy array representing the bounding boxes.
-        - classes: the list of classes associating with each bounding boxes.
-        - width: minimum delta value.
-        - height: maximum delta value.
-
-    Returns:
-        - image: The modified image
-        - bboxes: The unmodified bounding boxes
-        - classes: The unmodified bounding boxes
-
-    Raises:
-        - width is less than 0
-        - height is less than 0
-    """
-    assert width >= 0, "width must be larger than 0"
-    assert height >= 0, "height must be larger than 0"
-
-    def _augment(image, bboxes, classes=None):
-        temp_image = np.uint8(image)
-        o_height, o_width, _ = temp_image.shape
-        height_scale, width_scale = height / o_height, width / o_width
-        temp_image = cv2.resize(temp_image, (width, height))
-        temp_image = np.array(temp_image, dtype=np.float32)
-        temp_bboxes = bboxes.copy()
-        temp_bboxes[:, [0, 2]] *= width_scale
-        temp_bboxes[:, [1, 3]] *= height_scale
-        temp_bboxes[:, [0, 2]] = np.clip(temp_bboxes[:, [0, 2]], 0, width)
-        temp_bboxes[:, [1, 3]] = np.clip(temp_bboxes[:, [1, 3]], 0, height)
-
-        return temp_image, temp_bboxes, classes
-
-    return _augment
+    def __call__(self, img, boxes, labels):
+        return self.augment(img, boxes, labels)
