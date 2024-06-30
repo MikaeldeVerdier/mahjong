@@ -120,6 +120,11 @@ def prepare_dataset(path, labels, training_ratio=0):
             confidences.append(labels.index(label["label"]))
 
         if i < amount_training:
+            if not config.USE_AUGMENTATION:
+                dataset[0].append([img_path, locations, confidences, []])
+                
+                continue
+
             mask = np.random.rand(len(augmentations)) < probabilities
             chosen_augmentations = np.array(augmentations, dtype=object)[mask]  # [augmentation_func for augmentation_func, selected in zip(augmentations, mask) if selected]
 
