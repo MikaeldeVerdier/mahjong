@@ -90,13 +90,12 @@ def prepare_testing(image_path, gt_boxes, label_indices, input_shape):
 def prepare_dataset(path, labels, training_ratio=0):
     augmentations = [
         augmentation.random_contrast,
-        augmentation.random_contrast,
         augmentation.random_hue,
         augmentation.random_lighting_noise,
         augmentation.random_saturation,
-        augmentation.random_vertical_flip,
+        # augmentation.random_vertical_flip,  # Not actually used by pierluigi
         augmentation.random_horizontal_flip,
-        augmentation.random_expand,  # Could decrease max_ratio to make faster
+        augmentation.random_expand,  # Is slow, could decrease max_ratio to make faster
         augmentation.random_crop
     ]
     probabilities = [0.5] * len(augmentations)
@@ -121,20 +120,11 @@ def prepare_dataset(path, labels, training_ratio=0):
             confidences.append(labels.index(label["label"]))
 
         if i < amount_training:
-            dataset[0].append([img_path, locations, confidences, []])  # First, original image
+            mask = np.random.rand(len(augmentations)) < probabilities
+            chosen_augmentations = np.array(augmentations, dtype=object)[mask]  # [augmentation_func for augmentation_func, selected in zip(augmentations, mask) if selected]
 
-            all_chosen_augmentations = [[]]
-            for _ in range(config.AUGMENTATION_AMOUNT):
-                mask = np.random.rand(len(augmentations)) < probabilities
-                chosen_augmentations = [augmentation_func for augmentation_func, selected in zip(augmentations, mask) if selected]
-
-                if chosen_augmentations in all_chosen_augmentations:
-                    continue
-                else:
-                    new_data = [img_path, locations, confidences, chosen_augmentations]
-                    dataset[0].append(new_data)
-
-                    all_chosen_augmentations.append(chosen_augmentations)
+            new_data = [img_path, locations, confidences, chosen_augmentations]
+            dataset[0].append(new_data)
         else:
             dataset[1].append([img_path, locations, confidences])
 
