@@ -93,10 +93,10 @@ def prepare_dataset(path, labels, training_ratio=0):
         augmentation.random_hue,
         augmentation.random_lighting_noise,
         augmentation.random_saturation,
-        # augmentation.random_vertical_flip,  # Not actually used by pierluigi
-        augmentation.random_horizontal_flip,
         augmentation.random_expand,  # Is slow, could decrease max_ratio to make faster
-        augmentation.random_crop
+        augmentation.random_crop,
+        # augmentation.random_vertical_flip,  # Not actually used by pierluigi
+        augmentation.random_horizontal_flip
     ]
     probabilities = [0.5] * len(augmentations)
 
@@ -122,7 +122,7 @@ def prepare_dataset(path, labels, training_ratio=0):
         if i < amount_training:
             if not config.USE_AUGMENTATION:
                 dataset[0].append([img_path, locations, confidences, []])
-                
+
                 continue
 
             mask = np.random.rand(len(augmentations)) < probabilities
