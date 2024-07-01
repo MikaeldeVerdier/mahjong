@@ -38,11 +38,10 @@ def augment_data(image, boxes, labels):
     
     rgb_image = transformed_img[:, :, ::-1]
     centroids = box_utils.convert_to_centroids(transformed_boxes)
-    data = [rgb_image, centroids, transformed_labels]
 
     # box_utils.plot_ious(centroids, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(rgb_image), mode="RGB"))
 
-    return data
+    return rgb_image, centroids, transformed_labels
 
 
 def prepare_training(image_path, gt_boxes, label_indices, input_shape, label_amount, default_boxes):
