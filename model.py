@@ -39,9 +39,9 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		input_layer = Input(shape=self.input_shape, name="input")
 
-		processed_input = self.preprocess_function(input_layer)
+		# processed_input = self.preprocess_function(input_layer)
 
-		conv1_1 = Conv2D(64, (3, 3), activation="relu", padding="same", name="conv1_1", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(processed_input)
+		conv1_1 = Conv2D(64, (3, 3), activation="relu", padding="same", name="conv1_1", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(input_layer)
 		conv1_2 = Conv2D(64, (3, 3), activation="relu", padding="same", name="conv1_2", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(conv1_1)
 		pool1 = MaxPooling2D((2, 2), strides=(2, 2), name="pool1", padding="same")(conv1_2)
 
@@ -444,9 +444,9 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 	def create_decoded_tfmodel(self, variances):  # Not actually necessary, could just add them together in pipeline
 		inp = Input(shape=self.input_shape, name="image")
-		# x = self.preprocess_function(inp)
+		x = self.preprocess_function(inp)
 
-		preds = self.model(inp)
+		preds = self.model(x)
 		class_predictions = preds[:, :, :-4]
 		location_predictions = preds[:, :, -4:]
 
