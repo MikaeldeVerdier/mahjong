@@ -374,8 +374,8 @@ class SSDAugmentation(object):
             RandomSampleCrop(),
             RandomMirror(),
             ToPercentCoords(),
-            Resize(self.size),
-            SubtractMeans(self.mean)  # Is used for preprocessing (which is done in model instead)
+            Resize(self.size)
+            # SubtractMeans(self.mean)  # Is used for preprocessing (which is done in model instead)
         ])
 
     def __call__(self, img, boxes, labels):
