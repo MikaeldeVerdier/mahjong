@@ -9,24 +9,26 @@ import files
 import config
 import cv2
 
-def preprocess_image(path, input_shape):
+def preprocess_image(path):
     # img = Image.open(path)
 
     # img = img.resize(input_shape[:-1][::-1])
     # img = img.convert("RGB")
 
     img = cv2.imread(path)  # Seems to be around 50% faster than PIL
-    img = cv2.resize(img, input_shape[:-1][::-1], interpolation=cv2.INTER_LINEAR)
+    # img = cv2.resize(img, input_shape[:-1][::-1], interpolation=cv2.INTER_LINEAR)  # Could reintroduce this or something similar to make augmentation faster
     img = img[:, :, ::-1]
 
     return img
 
 
-def augment_data(image, boxes, labels):
+def augment_data(image, boxes, labels, input_shape):
     if not config.USE_AUGMENTATION:
+        image = cv2.resize(image, input_shape[:-1][::-1])
+
         return image, boxes, labels
 
-    augmentor = augmentation.SSDAugmentation(size=image.shape[0])  # Doesn't support non-square images right now
+    augmentor = augmentation.SSDAugmentation(size=input_shape[0])  # Doesn't support non-square images right now
 
     bgr_image = image[:, :, ::-1]  # Equivalent to cv2.cvtColor(image, cv2.RGB2BGR)
     coords = box_utils.convert_to_coordinates(boxes)
@@ -45,10 +47,10 @@ def augment_data(image, boxes, labels):
 
 
 def prepare_training(image_path, gt_boxes, label_indices, input_shape, label_amount, default_boxes):
-    image_arr = preprocess_image(image_path, input_shape)
+    image_arr = preprocess_image(image_path)
     # image_arr = np.array(image)
 
-    augmented_image_arr, gt_box, labels = augment_data(image_arr, gt_boxes, label_indices)
+    augmented_image_arr, gt_box, labels = augment_data(image_arr, gt_boxes, label_indices, input_shape)
     # box_utils.plot_ious(gt_box, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(augmented_image_arr), mode="RGB"))
 
     # processed_image = preprocess_function(augmented_image_arr)  # Writes over augmented_image_arr (processed_image == augmented_image_arr[:, :, ::-1])
