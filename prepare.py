@@ -30,20 +30,20 @@ def augment_data(image, boxes, labels, input_shape):
 
     augmentor = augmentation.SSDAugmentation(size=input_shape[0])  # Doesn't support non-square images right now
 
-    bgr_image = image[:, :, ::-1]  # Equivalent to cv2.cvtColor(image, cv2.RGB2BGR)
+    # bgr_image = image[:, :, ::-1]  # Equivalent to cv2.cvtColor(image, cv2.RGB2BGR)
     coords = box_utils.convert_to_coordinates(boxes)
 
-    transformed_img, transformed_boxes, transformed_labels = augmentor(bgr_image, coords, np.array(labels))
+    transformed_img, transformed_boxes, transformed_labels = augmentor(image, coords, np.array(labels))
 
     if transformed_boxes.shape == (0,):
         transformed_boxes = np.empty(shape=(0, 4))
     
-    rgb_image = np.uint8(np.round(transformed_img[:, :, ::-1], decimals=0))
+    # new_image = np.uint8(transformed_img,)  # np.uint8(np.round(transformed_img[:, :, ::-1], decimals=0))
     centroids = box_utils.convert_to_centroids(transformed_boxes)
 
-    # box_utils.plot_ious(centroids, np.empty(shape=(0, 4)), Image.fromarray(rgb_image, mode="RGB"))
+    # box_utils.plot_ious(centroids, np.empty(shape=(0, 4)), Image.fromarray(transformed_img, mode="RGB"))
 
-    return rgb_image, centroids, transformed_labels
+    return transformed_img, centroids, transformed_labels
 
 
 def prepare_training(image_path, gt_boxes, label_indices, input_shape, label_amount, default_boxes):

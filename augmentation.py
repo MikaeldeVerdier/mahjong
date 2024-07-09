@@ -39,9 +39,14 @@ class Lambda(object):
         return self.lambd(img, boxes, labels)
 
 
-class ConvertFromInts(object):
+class ToFloat(object):
     def __call__(self, image, boxes=None, labels=None):
         return image.astype(np.float32), boxes, labels
+
+
+class ToUInt(object):
+    def __call__(self, image, boxes=None, labels=None):
+        return np.round(image, decimals=0).astype(np.uint8), boxes, labels
 
 
 class SubtractMeans(object):
@@ -81,13 +86,14 @@ class Resize(object):
         self.size = size
 
     def __call__(self, image, boxes=None, labels=None):
+        interpolation_mode = choice([cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA, cv2.INTER_LANCZOS4])
         image = cv2.resize(image, (self.size,
-                                 self.size))
+                                 self.size), interpolation=interpolation_mode)
         return image, boxes, labels
 
 
 class RandomSaturation(object):
-    def __init__(self, lower=0.3, upper=2):
+    def __init__(self, lower=0.5, upper=1.5):
         self.lower = lower
         self.upper = upper
         assert self.upper >= self.lower, "contrast upper must be >= lower."
@@ -141,7 +147,7 @@ class ConvertColor(object):
             image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         elif self.current == 'HSV' and self.transform == 'BGR':
             image = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
-            image = np.clip(image, 0, 255)  # For some reason this is needed because values can be negative after randomSaturation (don't know why, isn't like that in luigis implementation)
+            # image = np.clip(image, 0, 255)  # For some reason this is needed because values can be negative after randomSaturation (don't know why, isn't like that in luigis implementation)
         else:
             raise NotImplementedError
         return image, boxes, labels
@@ -164,7 +170,7 @@ class RandomContrast(object):
 
 
 class RandomBrightness(object):
-    def __init__(self, delta=84):
+    def __init__(self, delta=32):
         assert delta >= 0.0
         assert delta <= 255.0
         self.delta = delta
@@ -191,8 +197,8 @@ class RandomSampleCrop(object):
     """
     def __init__(self):
         self.sample_options = [
-            # using entire original input image
-            None,
+            # # using entire original input image
+            # None,
             # sample a patch s.t. MIN jaccard w/ obj in .1,.3,.4,.7,.9
             (0.1, None),
             (0.3, None),
@@ -206,9 +212,10 @@ class RandomSampleCrop(object):
         height, width, _ = image.shape
         while True:
             # randomly choose a mode
-            mode = choice(self.sample_options)
-            if mode is None:
+            if random.rand() < 0.143:  # Value taken from luigi's implementation
                 return image, boxes, labels
+
+            mode = choice(self.sample_options)
 
             min_iou, max_iou = mode
             if min_iou is None:
@@ -346,34 +353,51 @@ class SwapChannels(object):
 
 class PhotometricDistort(object):
     def __init__(self):
-        self.pd = [
+        self.pd1 = [
+            ToFloat(),
+            RandomBrightness(),
             RandomContrast(),
-            ConvertColor(transform='HSV'),
+            ToUInt(),
+            ConvertColor(current='BGR', transform='HSV'),
+            ToFloat(),
             RandomSaturation(),
             RandomHue(),
+            ToUInt(),
+            ConvertColor(current='HSV', transform='BGR')
+        ]
+        self.pd2 = [
+            ToFloat(),
+            RandomBrightness(),
+            ToUInt(),
+            ConvertColor(current='BGR', transform='HSV'),
+            ToFloat(),
+            RandomSaturation(),
+            RandomHue(),
+            ToUInt(),
             ConvertColor(current='HSV', transform='BGR'),
-            RandomContrast()
+            ToFloat(),
+            RandomContrast(),
+            ToUInt(),
         ]
         self.rand_brightness = RandomBrightness()
         self.rand_light_noise = RandomLightingNoise()
 
     def __call__(self, image, boxes, labels):
         im = image.copy()
-        im, boxes, labels = self.rand_brightness(im, boxes, labels)
+        # im, boxes, labels = self.rand_brightness(im, boxes, labels)
         if random.randint(2):
-            distort = Compose(self.pd[:-1])
+            distort = Compose(self.pd1)
         else:
-            distort = Compose(self.pd[1:])
+            distort = Compose(self.pd2)
         im, boxes, labels = distort(im, boxes, labels)
         return im, boxes, labels  # self.rand_light_noise(im, boxes, labels)  # luigi doesn't use random channel swap
 
 
 class SSDAugmentation(object):
-    def __init__(self, size=300, mean=(104, 117, 123)):
+    def __init__(self, size=300, mean=(123, 117, 104)):
         self.mean = mean
         self.size = size
         self.augment = Compose([
-            ConvertFromInts(),
             ToAbsoluteCoords(),
             PhotometricDistort(),
             Expand(self.mean),
