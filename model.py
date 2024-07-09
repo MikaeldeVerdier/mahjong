@@ -172,7 +172,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		output = Concatenate(axis=-1)([class_predictions, location_predictions])
 
 		self.model = Model(inputs=[base_network.input], outputs=[output])
-		self.model.compile(loss=self.ssd_loss, optimizer=Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-8, weight_decay=0))  # SGD(learning_rate=learning_rate, momentum=momentum))
+		self.model.compile(loss=self.ssd_loss, optimizer=SGD(learning_rate=learning_rate, momentum=momentum))  # Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-8, weight_decay=0))  # 
 
 		self.plot_model()
 		# self.model.summary()
@@ -395,7 +395,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		except ImportError:
 			print("You need to install pydot and graphviz to plot model architecture.")
 
-	def plot_metrics(self, scoped=True):  # Consider adding labels for axis and such
+	def plot_metrics(self, scoped=True, name="metrics"):  # Consider adding labels for axis and such
 		_, axs = plt.subplots(len(self.metrics), figsize=(15, 4 * len(self.metrics)))
 
 		for ax, metric in zip(axs, self.metrics):
@@ -411,7 +411,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 				variance = np.mean(sorted_metrics[-share_metric:]) - np.mean(sorted_metrics[:share_metric])
 				ax.set_ylim(0, median + variance)
 
-		plt.savefig(f"{config.SAVE_FOLDER_PATH}/metrics.png", dpi=200)
+		plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}.png", dpi=200)
 		plt.close()
 
 	def create_decoder_model(self, variances):
