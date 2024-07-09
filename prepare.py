@@ -38,10 +38,10 @@ def augment_data(image, boxes, labels, input_shape):
     if transformed_boxes.shape == (0,):
         transformed_boxes = np.empty(shape=(0, 4))
     
-    rgb_image = transformed_img[:, :, ::-1]
+    rgb_image = np.uint8(np.round(transformed_img[:, :, ::-1], decimals=0))
     centroids = box_utils.convert_to_centroids(transformed_boxes)
 
-    # box_utils.plot_ious(centroids, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(rgb_image), mode="RGB"))
+    # box_utils.plot_ious(centroids, np.empty(shape=(0, 4)), Image.fromarray(rgb_image, mode="RGB"))
 
     return rgb_image, centroids, transformed_labels
 
@@ -51,7 +51,7 @@ def prepare_training(image_path, gt_boxes, label_indices, input_shape, label_amo
     # image_arr = np.array(image)
 
     augmented_image_arr, gt_box, labels = augment_data(image_arr, gt_boxes, label_indices, input_shape)
-    # box_utils.plot_ious(gt_box, np.empty(shape=(0, 4)), Image.fromarray(np.uint8(augmented_image_arr), mode="RGB"))
+    # box_utils.plot_ious(gt_box, np.empty(shape=(0, 4)), Image.fromarray(augmented_image_arr, mode="RGB"))
 
     # processed_image = preprocess_function(augmented_image_arr)  # Writes over augmented_image_arr (processed_image == augmented_image_arr[:, :, ::-1])
 

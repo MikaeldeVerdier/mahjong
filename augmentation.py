@@ -87,7 +87,7 @@ class Resize(object):
 
 
 class RandomSaturation(object):
-    def __init__(self, lower=0.5, upper=1.5):
+    def __init__(self, lower=0.3, upper=2):
         self.lower = lower
         self.upper = upper
         assert self.upper >= self.lower, "contrast upper must be >= lower."
@@ -95,21 +95,25 @@ class RandomSaturation(object):
 
     def __call__(self, image, boxes=None, labels=None):
         if random.randint(2):
-            image[:, :, 1] *= random.uniform(self.lower, self.upper)
+            factor = random.uniform(self.lower, self.upper)
+            image[:, :, 1] = np.clip(image[:, :, 1] * factor, 0, 255)
 
         return image, boxes, labels
 
 
 class RandomHue(object):
     def __init__(self, delta=18.0):
-        assert delta >= 0.0 and delta <= 360.0
+        self.max_val = 360.0  # 180.0  # Doesn't matter, it's degrees
+
+        assert delta >= 0.0 and delta <= self.max_val
         self.delta = delta
 
     def __call__(self, image, boxes=None, labels=None):
         if random.randint(2):
-            image[:, :, 0] += random.uniform(-self.delta, self.delta)
-            image[:, :, 0][image[:, :, 0] > 360.0] -= 360.0
-            image[:, :, 0][image[:, :, 0] < 0.0] += 360.0
+            chosen_delta = random.uniform(-self.delta, self.delta)
+            image[:, :, 0] = (image[:, :, 0] + chosen_delta) % self.max_val
+            # image[:, :, 0][image[:, :, 0] > self.max_val] -= self.max_val
+            # image[:, :, 0][image[:, :, 0] < 0.0] += self.max_val
         return image, boxes, labels
 
 
@@ -137,6 +141,7 @@ class ConvertColor(object):
             image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         elif self.current == 'HSV' and self.transform == 'BGR':
             image = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
+            image = np.clip(image, 0, 255)  # For some reason this is needed because values can be negative after randomSaturation (don't know why, isn't like that in luigis implementation)
         else:
             raise NotImplementedError
         return image, boxes, labels
@@ -153,12 +158,13 @@ class RandomContrast(object):
     def __call__(self, image, boxes=None, labels=None):
         if random.randint(2):
             alpha = random.uniform(self.lower, self.upper)
-            image *= alpha
+            # image *= alpha
+            image = np.clip(127.5 + alpha * (image - 127.5), 0, 255)
         return image, boxes, labels
 
 
 class RandomBrightness(object):
-    def __init__(self, delta=32):
+    def __init__(self, delta=84):
         assert delta >= 0.0
         assert delta <= 255.0
         self.delta = delta
@@ -166,7 +172,7 @@ class RandomBrightness(object):
     def __call__(self, image, boxes=None, labels=None):
         if random.randint(2):
             delta = random.uniform(-self.delta, self.delta)
-            image += delta
+            image = np.clip(image + delta, 0, 255)
         return image, boxes, labels
 
 
@@ -359,7 +365,7 @@ class PhotometricDistort(object):
         else:
             distort = Compose(self.pd[1:])
         im, boxes, labels = distort(im, boxes, labels)
-        return self.rand_light_noise(im, boxes, labels)
+        return im, boxes, labels  # self.rand_light_noise(im, boxes, labels)  # luigi doesn't use random channel swap
 
 
 class SSDAugmentation(object):
