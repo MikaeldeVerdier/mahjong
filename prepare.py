@@ -4,7 +4,7 @@ from PIL import Image
 # import albumentations as A
 
 import box_utils
-import augmentation
+import augment
 import files
 import config
 import cv2
@@ -28,22 +28,15 @@ def augment_data(image, boxes, labels, input_shape):
 
         return image, boxes, labels
 
-    augmentor = augmentation.SSDAugmentation(size=input_shape[0])  # Doesn't support non-square images right now
-
-    # bgr_image = image[:, :, ::-1]  # Equivalent to cv2.cvtColor(image, cv2.RGB2BGR)
-    coords = box_utils.convert_to_coordinates(boxes)
-
-    transformed_img, transformed_boxes, transformed_labels = augmentor(image, coords, np.array(labels))
+    augmentor = augment.ssd_augmentation(input_shape[1], input_shape[0])
+    transformed_img, transformed_boxes, transformed_labels = augmentor(image, boxes, np.array(labels))
 
     if transformed_boxes.shape == (0,):
         transformed_boxes = np.empty(shape=(0, 4))
-    
-    # new_image = np.uint8(transformed_img,)  # np.uint8(np.round(transformed_img[:, :, ::-1], decimals=0))
-    centroids = box_utils.convert_to_centroids(transformed_boxes)
 
-    # box_utils.plot_ious(centroids, np.empty(shape=(0, 4)), Image.fromarray(transformed_img, mode="RGB"))
+    # box_utils.plot_ious(transformed_boxes, np.empty(shape=(0, 4)), Image.fromarray(transformed_img, mode="RGB"))
 
-    return transformed_img, centroids, transformed_labels
+    return transformed_img, transformed_boxes, transformed_labels
 
 
 def prepare_training(image_path, gt_boxes, label_indices, input_shape, label_amount, default_boxes):
