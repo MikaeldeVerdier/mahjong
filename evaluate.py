@@ -179,7 +179,7 @@ from prepare import prepare_testing
 #     return mean_average_precision
 
 
-def plot_prec_rec(precision_values, recall_values, ap_values, labels):
+def plot_prec_rec(precision_values, recall_values, ap_values, labels, name="precision_recall_curve"):
     _, ax = plt.subplots(figsize=(10, 10))
 
     mAP = np.mean(ap_values)
@@ -198,7 +198,7 @@ def plot_prec_rec(precision_values, recall_values, ap_values, labels):
     plt.xlim(-margins, 1 + margins)
     plt.ylim(-margins, 1 + margins)
 
-    plt.savefig(f"{config.SAVE_FOLDER_PATH}/precision_recall_curve.png")
+    plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}.png")
     plt.close()
 
 
@@ -311,43 +311,48 @@ def evaluate(model, dataset, labels):
 """
 
 
-def compute_prec_rec(tps, fps, total):
+def compute_cum_prec_rec(tps, fps, total):
     cum_prec = np.where(tps + fps > 0, tps / (tps + fps), 0)
     cum_rec = tps / total  # cum_tp / (cum_tp[-1] + fn_tot)
 
     return cum_prec, cum_rec
 
 
-def compute_AP_sample(prec, rec, num_recall_points=11):  # Pre-2010 sample-based AP
-    ap = 0
-    for t in np.linspace(0, 1, num_recall_points, endpoint=True):
-        cum_prec_threshed = prec[rec >= t]
+def compute_AP(prec, rec, type, num_recall_points=11):
+    if type == "integration":
+        unique_rec, unique_rec_ind = np.unique(rec, return_index=True)
 
-        if not len(cum_prec_threshed):
-            precision = 0
-        else:
-            precision = np.max(cum_prec_threshed)
+        interpolated_precision = np.maximum.accumulate(prec[unique_rec_ind][::-1])[::-1]
+        recall_diff = np.append(np.diff(unique_rec), [0])
 
-        ap += precision
-    ap /= num_recall_points
+        ap = np.sum(interpolated_precision * recall_diff)
 
-    return ap
+        return ap, interpolated_precision, unique_rec
+    elif type == "sample":  # Only needed if type is a third option
+        precs = []
+        recs = []  # Will just end up equaling list(np.linspace(0, 1, num_recall_points, endpoint=True))
+        ap = 0
+        for t in np.linspace(0, 1, num_recall_points, endpoint=True):
+            prec_threshed = prec[rec >= t]
+
+            if not len(prec_threshed):
+                precision = 0
+            else:
+                precision = np.max(prec_threshed)
+
+            precs.append(precision)
+            recs.append(t)
+            ap += precision
+
+        ap /= num_recall_points
+
+        return ap, precs, recs
 
 
-def compute_AP_integration(prec, rec):  # Post-2010 integration-based AP
-    unique_rec, unique_rec_ind = np.unique(rec, return_index=True)
-
-    interpolated_precision = np.maximum.accumulate(prec[unique_rec_ind][::-1])[::-1]
-    recall_diff = np.append(np.diff(unique_rec), [0])
-
-    ap = np.sum(interpolated_precision * recall_diff)
-
-    return ap
-
-def compute_mAP(all_preds, all_gts, labels, AP_type, matching_threshold):
+def compute_mAP(all_preds, all_gts, labels, AP_type, matching_threshold, returns_cums=False):
     aps = []
-    cum_precs = []
-    cum_recs = []
+    precs = []
+    recs = []
 
     num_gts = np.zeros(shape=len(labels))
     for img_gts in all_gts:
@@ -357,9 +362,9 @@ def compute_mAP(all_preds, all_gts, labels, AP_type, matching_threshold):
     for label_index in range(len(labels)):
         preds = np.array(all_preds[label_index])
         if not len(preds):
-            # aps.append(0)  # class is ignored for mAP
-            cum_precs.append([])
-            cum_recs.append([])
+            # aps.append(0)  # class is ignored for mAP, with this its AP would instead be counted as being 0
+            precs.append([])
+            recs.append([])
 
             continue
 
@@ -400,22 +405,23 @@ def compute_mAP(all_preds, all_gts, labels, AP_type, matching_threshold):
         cum_tp = np.cumsum(tp)
         cum_fp = np.cumsum(fp)
 
-        prec, rec = compute_prec_rec(cum_tp, cum_fp, num_gts[label_index])
-        if AP_type == "sample":
-            ap = compute_AP_sample(prec, rec)
-        else:
-            ap = compute_AP_integration(prec, rec)
+        cum_prec, cum_rec = compute_cum_prec_rec(cum_tp, cum_fp, num_gts[label_index])
+        ap, prec, rec = compute_AP(cum_prec, cum_rec, type=AP_type)
 
         aps.append(ap)
-        cum_precs.append(prec)
-        cum_recs.append(rec)
+        if not returns_cums:
+            precs.append(prec)
+            recs.append(rec)
+        else:
+            precs.append(cum_prec)
+            recs.append(cum_rec)
 
     mAP = np.mean(aps)
 
-    return mAP, aps, cum_precs, cum_recs
+    return mAP, aps, precs, recs
 
 
-def evaluate(model, dataset, labels, AP_type="integrate", confidence_threshold=0.5):
+def evaluate(model, dataset, labels, AP_type="integration", confidence_threshold=0.5):
     all_preds = [[] for _ in labels]  # Entry per label
     all_gts = []  # Entry per image
 

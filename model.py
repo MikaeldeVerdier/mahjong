@@ -389,9 +389,9 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 			reading = json.loads(f.read())
 			self.default_boxes = np.array(reading)
 
-	def plot_model(self):
+	def plot_model(self, name="model_architecture"):
 		try:
-			plot_model(self.model, to_file=f"{config.SAVE_FOLDER_PATH}/model_architecture.png", show_shapes=True, show_layer_names=True)
+			plot_model(self.model, to_file=f"{config.SAVE_FOLDER_PATH}/{name}.png", show_shapes=True, show_layer_names=True)
 		except ImportError:
 			print("You need to install pydot and graphviz to plot model architecture.")
 

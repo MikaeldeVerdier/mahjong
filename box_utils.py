@@ -114,7 +114,7 @@ def match(boxes1, boxes2, matching_threshold=0.5, neutral_threshold=0.5):
 	return matches, neutrals
 
 
-def plot_ious(gts, boxes, img, labels=None, confidences=None, name="boxes.png", scale_coords=True):  # Should scale_coords even be an option? I never use scaled coords
+def plot_ious(gts, boxes, img, labels=None, confidences=None, name="boxes", scale_coords=True):  # Should scale_coords even be an option? I never use scaled coords
 	if labels is None:
 		labels = [""] * len(boxes)
 	if confidences is None:
@@ -149,7 +149,7 @@ def plot_ious(gts, boxes, img, labels=None, confidences=None, name="boxes.png", 
 		desc = "" if label is None else f"{label} ({confidence:.3f})" if confidence else f"{label}"
 		plt.text(left, bottom + 10, desc, horizontalalignment="center", fontdict=label_font)
 
-	plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}", dpi=300)
+	plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}.png", dpi=300)
 	plt.close()
 
 
