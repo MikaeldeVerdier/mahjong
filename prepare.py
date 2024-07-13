@@ -69,8 +69,7 @@ def prepare_training(image_path, gt_boxes, label_indices, input_shape, label_amo
 
 
 def prepare_testing(image_path, gt_boxes, label_indices, input_shape):
-    image = preprocess_image(image_path)
-    image = Image.fromarray(image, mode="RGB")
+    image = Image.open(image_path)
     image = image.resize(input_shape[:-1][::-1])
 
     return image, gt_boxes, label_indices

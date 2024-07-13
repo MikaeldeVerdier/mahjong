@@ -707,25 +707,3 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		label_infos = [predicted_labels, locations, label_confs]
 
 		return label_infos
-
-	def inference2(self, image, labels, confidence_threshold=0.25):
-		from imp_model import DecodeDetections
-		preds = self.model.predict(np.array(image)[None])
-		
-		decoded = DecodeDetections(confidence_thresh=0.2,
-                                                iou_threshold=0.45,
-                                                top_k=200,
-                                                nms_max_output_size=400,
-                                                coords="centroids",
-                                                normalize_coords=False,
-                                                img_height=300,
-                                                img_width=300,
-                                                name='decoded_predictions')(preds).numpy()[0]
-
-		predicted_labels = np.array([labels[int(val) - 1] for val in decoded[:, 0]])
-		predicted_confidences = decoded[:, 1]
-		predicted_locations = decoded[:, 2:]
-
-		label_infos = [predicted_labels, predicted_locations, predicted_confidences]
-
-		return label_infos

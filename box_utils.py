@@ -159,11 +159,11 @@ def calculate_offset(gt, boxes, variances):
 	# w = np.log(gt[2] / boxes[:, 2])
 	# h = np.log(gt[3] / boxes[:, 3])
 
-	cxcy = (gt[:2] - boxes[:, :2]) / boxes[:, 2:]
-	wh = np.log(gt[2:] / boxes[:, 2:])
+	variances = np.array(variances)
+	cxcy = (gt[:2] - boxes[:, :2]) / (boxes[:, 2:] * variances[:2])
+	wh = np.log(gt[2:] / boxes[:, 2:]) / variances[2:]
 
 	offset = np.concatenate([cxcy, wh], 1)
-	offset /= variances
 
 	return offset
 
