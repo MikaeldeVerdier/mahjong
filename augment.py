@@ -300,7 +300,6 @@ def single_cache(f):  # Quite a weird thing, feels like it indicates that the st
 
 @single_cache
 def ssd_augmentation(image_width, image_height):
-    print("CALLED")
     transforms = [
         photometric_distort(),
         convert_boxes("centroids", "coordinates"),
