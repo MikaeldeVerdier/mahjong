@@ -286,7 +286,21 @@ def random_resize(width, height):
     return transform
 
 
+def single_cache(f):  # Quite a weird thing, feels like it indicates that the structure could be improved to avoid this.
+    value = None
+
+    def inner(*args):
+        nonlocal value
+        value = value or f(*args)
+
+        return value
+
+    return inner
+
+
+@single_cache
 def ssd_augmentation(image_width, image_height):
+    print("CALLED")
     transforms = [
         photometric_distort(),
         convert_boxes("centroids", "coordinates"),

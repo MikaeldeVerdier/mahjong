@@ -28,7 +28,7 @@ def augment_data(image, boxes, labels, input_shape):
 
         return image, boxes, labels
 
-    augmentor = augment.ssd_augmentation(input_shape[1], input_shape[0])
+    augmentor = augment.ssd_augmentation(input_shape[1], input_shape[0])  # This doesn't need to be reinitialized every time (currently uses a single-cache against this)
     transformed_img, transformed_boxes, transformed_labels = augmentor(image, boxes, np.array(labels))
 
     if transformed_boxes.shape == (0,):
