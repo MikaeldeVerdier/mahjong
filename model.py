@@ -20,7 +20,7 @@ import config
 from l2_norm import L2Normalization
 
 class SSD_Model:  # Consider instead saving weights, and using a seperate training and inference model (to decode in model)
-	def __init__(self, input_shape, class_amount, lr=config.LEARNING_RATE, momentum=config.MOMENTUM, hard_neg_ratio=config.HARD_NEGATIVE_RATIO, alpha=config.ALPHA, load=False):
+	def __init__(self, input_shape, class_amount, lr=list(config.LEARNING_RATE.values())[0], momentum=config.MOMENTUM, hard_neg_ratio=config.HARD_NEGATIVE_RATIO, alpha=config.ALPHA, load=False):
 		self.input_shape = input_shape
 		self.class_amount = class_amount
 		self.hard_neg_ratio = hard_neg_ratio
@@ -96,7 +96,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		x = base_network.get_layer("fc7").output
 		outputs.append(x)
 
-		x = base_network.output
+		# x = base_network.output
 
 		x = Conv2D(filters=256, kernel_size=(1, 1), padding="same", activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
 		x = ZeroPadding2D(padding=((1, 1), (1, 1)))(x)
@@ -395,7 +395,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		except ImportError:
 			print("You need to install pydot and graphviz to plot model architecture.")
 
-	def plot_metrics(self, scoped=True, name="metrics"):  # Consider adding labels for axis and such
+	def plot_metrics(self, scoped=False, name="metrics"):  # Consider adding labels for axis and such
 		_, axs = plt.subplots(len(self.metrics), figsize=(15, 4 * len(self.metrics)))
 
 		for ax, metric in zip(axs, self.metrics):
