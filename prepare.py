@@ -73,16 +73,20 @@ def prepare_training(image_path, gt_boxes, label_indices, input_shape, label_amo
 def prepare_testing(image_path, gt_boxes, label_indices, input_shape):
     image = Image.open(image_path)
     image = image.resize(input_shape[:-1][::-1])
+    image = image.convert("RGB")
 
     return image, gt_boxes, label_indices
 
 
-def prepare_dataset(path, labels, training_ratio=0, exclude_difficult=False):
+def prepare_dataset(path, labels, training_ratio=0, exclude_difficult=False, ignore_no_gt=True):
     dataset = [[], []]
     annotations = files.load(path)
 
     amount_training = int(len(annotations) * training_ratio)
     for i, annotation in enumerate(annotations):
+        if ignore_no_gt and not len(annotation["annotations"]):
+            continue
+
         img_path = os.path.join(path, annotation["image"])
         image_size = Image.open(img_path).size
 
