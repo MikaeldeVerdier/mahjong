@@ -56,6 +56,8 @@ def prepare_training(image_path, gt_boxes, label_indices, input_shape, label_amo
     for gt_index, default_index in enumerate(matches):
         offset = box_utils.calculate_offset(gt_box[gt_index], default_boxes[default_index], variances=config.VARIANCES)
 
+        # box_utils.plot_ious(gt_box[gt_index][None], default_boxes[default_index], Image.fromarray(augmented_image_arr, mode="RGB"))
+
         locations[default_index] = offset
         confidences[default_index, labels[gt_index] + 1] = 1
 
@@ -75,7 +77,7 @@ def prepare_testing(image_path, gt_boxes, label_indices, input_shape):
     return image, gt_boxes, label_indices
 
 
-def prepare_dataset(path, labels, training_ratio=0):
+def prepare_dataset(path, labels, training_ratio=0, exclude_difficult=False):
     dataset = [[], []]
     annotations = files.load(path)
 
@@ -87,6 +89,9 @@ def prepare_dataset(path, labels, training_ratio=0):
         locations = np.empty(shape=(0, 4))
         confidences = []
         for label in annotation["annotations"]:
+            if exclude_difficult and label["difficulty"]:
+                continue
+
             box = np.array(list(label["coordinates"].values()))
             scaled_box = box_utils.scale_box(box, (1 / image_size[0], 1 / image_size[1]))
             # scaled_coords = [val / image_size[key in ["y", "height"]] for key, val in label["coordinates"].items()]

@@ -31,8 +31,9 @@ class Converter:
                 target_root = ET.parse(path).getroot()
 
                 # folder = root.find("folder").text
-                img_name = target_root.find("filename").text
+                img_name = target_root.find("filename").text  # annotation ?
                 names = [name.text for name in target_root.findall("object/name")]
+                difficulties = [int(difficulty.text) for difficulty in target_root.findall("object/difficult")]
                 boxes = [{coord.tag: float(coord.text) for coord in bnd_box} for bnd_box in target_root.findall("object/bndbox")]
                 boxes = np.array([[box["xmin"], box["ymin"], box["xmax"], box["ymax"]] for box in boxes])
                 centroid_boxes = convert_to_centroids(boxes)  # Don't know why this abs is needed (w, h are negative otherwise)
@@ -50,9 +51,10 @@ class Converter:
                                 "y": coords[1],
                                 "w": coords[2],
                                 "h": coords[3]
-                            }
+                            },
+                            "difficulty": difficulty
                         }
-                    for label, coords in zip(names, centroid_boxes)]
+                    for label, coords, difficulty in zip(names, centroid_boxes, difficulties)]
                 }
 
                 file_name = annotation.replace(".xml", "")
@@ -86,8 +88,8 @@ class Converter:
                     new_path = os.path.join(dir_path, img_name)
                     img.save(new_path)
 
-input_roots = ["VOCdevkit/VOC2007", "VOCdevkit/VOC2012"]
+input_roots = ["VOCdevkit/VOC2007"]
 converter = Converter(input_roots)
 
-output_dirs = ["dataset/data/VOC07+12_trainval"]
-dataset = converter.convert_to_createml(output_dirs, divisions=["trainval"])  # Divisions and output_dirs should have the same length
+output_dirs = ["dataset/data/VOC07_test"]
+dataset = converter.convert_to_createml(output_dirs, divisions=["test"])  # Divisions and output_dirs should have the same length
