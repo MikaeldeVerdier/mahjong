@@ -180,7 +180,7 @@ from prepare import prepare_testing
 
 
 def plot_prec_rec(precision_values, recall_values, ap_values, labels, name="precision_recall_curve"):
-    _, ax = plt.subplots(figsize=(10, 10))
+    _, ax = plt.subplots(figsize=(15, 15))
 
     mAP = np.mean(ap_values)
 

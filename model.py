@@ -121,23 +121,23 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		im_aspect_ratio = self.input_shape[1] / self.input_shape[0]
 
 		aspect_ratios = [
-			(1, 2, 0.5),
 			(1, 2, 0.5, 3, 1 / 3),
 			(1, 2, 0.5, 3, 1 / 3),
 			(1, 2, 0.5, 3, 1 / 3),
-			(1, 2, 0.5),
-			(1, 2, 0.5)
+			(1, 2, 0.5, 3, 1 / 3),
+			(1, 2, 0.5, 3, 1 / 3),
+			(1, 2, 0.5, 3, 1 / 3)
 		]
 
-		# def calc_scale(min_scale, max_scale):
-		# 	return np.append(np.linspace(min_scale, max_scale, len(outputs)), [min_scale + (max_scale - min_scale) / (len(outputs) - 1)])
+		def calc_scale(min_scale, max_scale):
+			return np.append(np.linspace(min_scale, max_scale, len(outputs)), [min_scale + (max_scale - min_scale) / (len(outputs) - 1)])
 		scales = [
-			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],  # from luigi (mine: calc_scale(0.1, 0.9) (for this layer and after that calc_scale(0.2, 0.9)))
-			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],
-			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],
-			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],
-			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05],
-			[0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05]
+			calc_scale(0.05, 0.8),  # from me (luigi: [0.1, 0.2, 0.37, 0.54, 0.71, 0.88, 1.05] for all layers)
+			calc_scale(0.1, 0.9),
+			calc_scale(0.1, 0.9),
+			calc_scale(0.1, 0.9),
+			calc_scale(0.1, 0.9),
+			calc_scale(0.1, 0.9)
 		]
 
 		def calc_step(val):
