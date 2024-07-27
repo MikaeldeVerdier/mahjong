@@ -179,13 +179,13 @@ from prepare import prepare_testing
 #     return mean_average_precision
 
 
-def plot_prec_rec(precision_values, recall_values, ap_values, labels, name="precision_recall_curve"):
+def plot_prec_rec(precision_values, recall_values, mAP, ap_values, labels, name="precision_recall_curve"):
     _, ax = plt.subplots(figsize=(15, 15))
 
-    mAP = np.mean(ap_values)
-
     for precision_value, recall_value, ap_value, label in zip(precision_values, recall_values, ap_values, labels):
-        ax.plot(recall_value, precision_value, label=f"{label} (AP: {(ap_value * 100):.2f}%)")
+        ap_text = f"{(ap_value * 100):.2f}%" if ap_value is not None else "None"
+        
+        ax.plot(recall_value, precision_value, label=f"{label} (AP: {ap_text})")
         ax.set_xscale("linear")
         ax.legend()
 
@@ -362,7 +362,8 @@ def compute_mAP(all_preds, all_gts, labels, AP_type, matching_threshold, returns
     for label_index in range(len(labels)):
         preds = np.array(all_preds[label_index])
         if not len(preds):
-            # aps.append(0)  # class is ignored for mAP, with this its AP would instead be counted as being 0
+            aps.append(None)  # class is ignored for mAP, with this its AP would instead be counted as being 0
+            # aps.append(0)
             precs.append([])
             recs.append([])
 
@@ -416,18 +417,18 @@ def compute_mAP(all_preds, all_gts, labels, AP_type, matching_threshold, returns
             precs.append(cum_prec)
             recs.append(cum_rec)
 
-    mAP = np.mean(aps)
+    mAP = np.mean([ap for ap in aps if ap is not None])
 
     return mAP, aps, precs, recs
 
 
-def evaluate(model, dataset, labels, AP_type="integration", confidence_threshold=0.5):
+def evaluate(model, dataset, labels, AP_type="sample", confidence_threshold=0.5):
     all_preds = [[] for _ in labels]  # Entry per label
     all_gts = []  # Entry per image
 
     for i, (image_path, gt_boxes, gt_labels) in enumerate(dataset):
         image, gt_boxes, gt_labels = prepare_testing(image_path, gt_boxes, gt_labels, model.input_shape)
-        preds = model.inference(image, labels, confidence_threshold=0.01)  # Supposed to be 0.01 (as in SSD paper)
+        preds = model.inference(image, labels, confidence_threshold=0.01, iou_threshold=0.15)  # Supposed to be 0.01 (as in SSD paper)
 
         # box_utils.plot_ious(gt_boxes, preds[1], image, labels=preds[0], confidences=preds[2])
 
@@ -442,7 +443,7 @@ def evaluate(model, dataset, labels, AP_type="integration", confidence_threshold
         all_gts.append(gts)
 
     mAP, aps, precisions, recalls = compute_mAP(all_preds, all_gts, labels, AP_type, matching_threshold=confidence_threshold)
-    plot_prec_rec(precisions, recalls, aps, labels)
+    plot_prec_rec(precisions, recalls, mAP, aps, labels)
 
     return mAP
 
