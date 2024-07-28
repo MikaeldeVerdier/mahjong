@@ -13,5 +13,5 @@ EPOCHS = 1
 VALIDATION_SPLIT = 0.2
 
 # Saving configuration
-SAVE_FOLDER_PATH = "/Users/mikaeldeverdier/Downloads/save_folder 99.3 mj 35k"
+SAVE_FOLDER_PATH = "save_folder"
 SAVING_RATIO = 1

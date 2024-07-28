@@ -1,1 +1,1 @@
-# Object Detection and Classification of Mahjong Tiles Using the SSD Algorithm
+# Object detection on Mahjong tiles using the SSD algorithm

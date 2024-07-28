@@ -71,7 +71,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		# weights_path_no_top = ("https://storage.googleapis.com/tensorflow/keras-applications/vgg16/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5")
 		# self.weights_path = data_utils.get_file("vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5", weights_path_no_top, cache_subdir="models", file_hash="6d6bbae143d832006294945121d1f1fc")
 
-		model.load_weights("vgg16_weights/VGG_ILSVRC_16_layers_fc_reduced.h5", by_name=True)
+		model.load_weights("ssd/vgg16_weights/VGG_ILSVRC_16_layers_fc_reduced.h5", by_name=True)
 
 		return model
 
