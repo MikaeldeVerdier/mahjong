@@ -1,0 +1,1 @@
+# Synthetic data generation of Mahjong tiles using Blender
