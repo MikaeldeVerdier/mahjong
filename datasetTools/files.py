@@ -12,9 +12,6 @@ def save(annotations, output_dir):
         json.dump(annotations, json_file)
 
 
-def copy_file(name, input_dir, output_dir):
-    input_path = os.path.join(input_dir, name)
-    new_path = os.path.join(output_dir, name)
-
-    shutil.copy(input_path, new_path)
+def copy_file(old_path, new_path):
+    shutil.copy(old_path, new_path)
 

@@ -9,20 +9,27 @@ input_dirs = [
 output_dir = "/path/to/output_dir"
 combine_annotations = False
 
-annotations = []
+new_annotations = []
 
 for input_dir in input_dirs:
     dir_identifier = hash(input_dir)
 
+    annotations = files.load(input_dir)
+    for i, annotation in enumerate(annotations):
+        annotations[i]['image'] = f"{dir_identifier}_{annotation['image']}"
+
     if combine_annotations:
-        annotations += files.load(input_dir)
+        new_annotations += annotations
 
     for file in os.listdir(input_dir):
         if file == ".DS_Store":
             continue
 
         if not file.endswith(".createml.json"):
-            files.copy_file(file, input_dir, output_dir)
+            old_path = os.path.join(input_dir, file)
+            new_path = os.path.join(output_dir, f"{dir_identifier}_{file}")
+
+            files.copy_file(old_path, new_path)
 
 if combine_annotations:
-    files.save(annotations, output_dir)
+    files.save(new_annotations, output_dir)
