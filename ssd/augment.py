@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import random
+from PIL import Image
 
 import box_utils
 
@@ -274,6 +275,145 @@ def random_flip(dim="horizontal", p=0.5):
     return transform
 
 
+def random_rotate(p=0.5):
+    def transform(image, boxes, labels):
+        if np.random.rand() > p:
+            return image, boxes, labels
+
+        angle = np.random.uniform(0, 360)
+
+        image_pil = Image.fromarray(image)
+        rotated_image_pil = image_pil.rotate(angle, expand=True)
+        rotated_image = np.array(rotated_image_pil)
+
+        height, width = image.shape[:2]
+        new_height, new_width = rotated_image.shape[:2]
+
+        angle_rad = np.deg2rad(angle)
+
+        cos_angle = np.cos(angle_rad)
+        sin_angle = np.sin(angle_rad)
+
+        center_x = width / 2
+        center_y = height / 2
+
+        new_center_x = new_width / 2
+        new_center_y = new_height / 2
+
+        rotated_bboxes = []
+        for box in boxes:
+            xmin, ymin, xmax, ymax = box
+
+            corners = np.array([[xmin, ymin], [xmax, ymin], [xmax, ymax], [xmin, ymax]])
+
+            corners_translated = corners - np.array([center_x, center_y])
+
+            rotated_corners = np.dot(corners_translated, np.array([[cos_angle, -sin_angle], [sin_angle, cos_angle]]))
+            rotated_corners = rotated_corners + np.array([new_center_x, new_center_y])
+
+            new_xmin = np.min(rotated_corners[:, 0])
+            new_ymin = np.min(rotated_corners[:, 1])
+            new_xmax = np.max(rotated_corners[:, 0])
+            new_ymax = np.max(rotated_corners[:, 1])
+
+            rotated_bboxes.append((new_xmin, new_ymin, new_xmax, new_ymax))
+
+        image = rotated_image
+        boxes = rotated_bboxes
+
+        return image, boxes, labels
+
+    return transform
+
+
+def random_perspective_warp(min_factor=0, max_factor=0.2, p=0.5):
+    def transform(image, boxes, labels):
+        if np.random.rand() > p:
+            return image, boxes, labels
+
+        height, width = image.shape[:2]
+
+        factor = np.random.uniform(min_factor, max_factor)
+
+        src_points = np.float32([[0, 0], [width, 0], [width, height], [0, height]])
+        dst_points = src_points + np.random.uniform(-width * factor, width * factor, src_points.shape).astype(np.float32)
+
+        M = cv2.getPerspectiveTransform(src_points, dst_points)
+        image = cv2.warpPerspective(image, M, (width, height))
+
+        warped_bboxes = []
+        for box in boxes:
+            xmin, ymin, xmax, ymax = box
+            points = np.array([[xmin, ymin], [xmax, ymin], [xmax, ymax], [xmin, ymax]], dtype=np.float32)
+
+            warped_points = cv2.perspectiveTransform(np.array([points]), M)[0]
+
+            new_xmin = np.min(warped_points[:, 0])
+            new_ymin = np.min(warped_points[:, 1])
+            new_xmax = np.max(warped_points[:, 0])
+            new_ymax = np.max(warped_points[:, 1])
+
+            warped_bboxes.append((new_xmin, new_ymin, new_xmax, new_ymax))
+
+        boxes = warped_bboxes
+
+        return image, boxes, labels
+
+    return transform
+
+
+def random_homography_transform(p=0.5):
+    def transform(image, boxes, labels):
+        if np.random.rand() > p:
+            return image, boxes, labels
+
+        height, width = image.shape[:2]
+
+        src_points = np.float32([[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]])
+        dst_points = src_points + np.random.uniform(-width * 0.3, width * 0.3, src_points.shape).astype(np.float32)
+
+        H, _ = cv2.findHomography(src_points, dst_points)
+        image = cv2.warpPerspective(image, H, (width, height))
+
+        transformed_bboxes = []
+        for box in boxes:
+            xmin, ymin, xmax, ymax = box
+            points = np.array([[xmin, ymin], [xmax, ymin], [xmax, ymax], [xmin, ymax]], dtype=np.float32)
+
+            transformed_points = cv2.perspectiveTransform(np.array([points]), H)[0]
+
+            new_xmin = np.min(transformed_points[:, 0])
+            new_ymin = np.min(transformed_points[:, 1])
+            new_xmax = np.max(transformed_points[:, 0])
+            new_ymax = np.max(transformed_points[:, 1])
+
+            transformed_bboxes.append((new_xmin, new_ymin, new_xmax, new_ymax))
+
+        boxes = transformed_bboxes
+
+        return image, boxes, labels
+
+    return transform
+
+
+def random_motion_blur(min_kernel_size=1, max_kernel_size=10, p=0.5):
+    def transform(image, boxes, labels):
+        if np.random.rand() > p:
+            return image, boxes, labels
+
+        kernel_size = int(np.random.uniform(min_kernel_size, max_kernel_size))
+
+        kernel = np.zeros((kernel_size, kernel_size))
+        kernel[int((kernel_size - 1) / 2), :] = np.ones(kernel_size)
+        kernel /= kernel_size
+
+        image = cv2.filter2D(image, -1, kernel)
+
+        return image, boxes, labels
+
+    return transform
+
+
 def random_resize(width, height):
     interpolation_options = [cv2.INTER_NEAREST, cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA, cv2.INTER_LANCZOS4]
 
@@ -307,6 +447,10 @@ def ssd_augmentation(image_width, image_height):
         random_expand(),
         random_sample_crop(),
         random_flip("horizontal"),
+        random_rotate(),
+        random_perspective_warp(),
+        random_homography_transform(),
+        random_motion_blur(),
         convert_coords("absolute", "relative"),
         convert_boxes("coordinates", "centroids"),
         random_resize(image_width, image_height)
