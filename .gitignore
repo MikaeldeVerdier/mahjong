@@ -2,7 +2,7 @@
 *.vscode/
 *__pycache__/
 
-ssd/save_folder/
+save_folder/
 ssd/dataset/data*
 *VOCdevkit/
 ssd/vgg16_weights/*
