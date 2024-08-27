@@ -11,12 +11,15 @@ combine_annotations = True
 
 new_annotations = []
 
+if not os.path.exists(output_dir):
+    os.mkdir(output_dir)
+
 for input_dir in input_dirs:
     dir_identifier = hash(input_dir)
 
     annotations = files.load(input_dir)
     for i, annotation in enumerate(annotations):
-        annotations[i]["image"] = f"{dir_identifier}_{annotation["image"]}"
+        annotations[i]["image"] = f"{dir_identifier}_{annotation['image']}"
 
     if combine_annotations:
         new_annotations += annotations
