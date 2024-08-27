@@ -104,6 +104,8 @@ def prepare_dataset(path, labels, training_ratio=0, exclude_difficult=False, ign
 
             confidences.append(labels.index(label["label"]))
 
+        # box_utils.plot_ious(locations, np.empty(shape=(0, 4)), Image.open(img_path))
+
         dataset[int(i >= amount_training)].append([img_path, locations, confidences])
 
     return dataset

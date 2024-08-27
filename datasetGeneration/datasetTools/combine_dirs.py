@@ -3,11 +3,11 @@ import os
 import files
 
 input_dirs = [
-    "/path/to/input_dir1",
-    "/path/to/input_dir2"
+    "ssd/dataset/data/realWorldDataset",
+    "ssd/dataset/data/synthDataset"
 ]
-output_dir = "/path/to/output_dir"
-combine_annotations = False
+output_dir = "/Users/mikaeldeverdier/mahjong/mahjong/ssd/dataset/data/hybridDataset"
+combine_annotations = True
 
 new_annotations = []
 
@@ -16,7 +16,7 @@ for input_dir in input_dirs:
 
     annotations = files.load(input_dir)
     for i, annotation in enumerate(annotations):
-        annotations[i]['image'] = f"{dir_identifier}_{annotation['image']}"
+        annotations[i]["image"] = f"{dir_identifier}_{annotation["image"]}"
 
     if combine_annotations:
         new_annotations += annotations

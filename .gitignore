@@ -8,4 +8,4 @@ ssd/dataset/data*
 ssd/vgg16_weights/*
 !ssd/vgg16_weights/vgg16_weights.sh
 
-synthDataGen/backgrounds
+datasetGeneration/backgrounds
