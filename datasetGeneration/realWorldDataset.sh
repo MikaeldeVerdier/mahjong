@@ -1,5 +1,5 @@
 # Inspired by .../ssd/dataset/voc07.sh and .../ssd/dataset/voc12.sh
-# This dataset is nothing but a combination of the following Roboflow datasets: https://universe.roboflow.com/riichimahjongdetection/chinese-mahjong-detection, https://universe.roboflow.com/test-ag8z6/mahjong-tiles-saihf, https://universe.roboflow.com/kevin-xa6tm/icanreadmahjong, https://universe.roboflow.com/marco-liu-vwkdl/nxiru4322x489, https://universe.roboflow.com/marco-liu-vwkdl/mj2-dtaov. The labels formats have been translated to match this implementation.
+# This dataset is nothing but a combination of the following Roboflow datasets: https://universe.roboflow.com/riichimahjongdetection/chinese-mahjong-detection, https://universe.roboflow.com/test-ag8z6/mahjong-tiles-saihf, https://universe.roboflow.com/kevin-xa6tm/icanreadmahjong, https://universe.roboflow.com/marco-liu-vwkdl/nxiru4322x489, https://universe.roboflow.com/marco-liu-vwkdl/mj2-dtaov. The labels formats have been translated to match this implementation and then combined using datasetGeneration/datasetTools/combine_dirs.py
 
 start=`date +%s`
 

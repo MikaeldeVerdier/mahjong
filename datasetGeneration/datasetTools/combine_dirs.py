@@ -3,7 +3,7 @@ import os
 import files
 
 input_dirs = [
-    "ssd/dataset/data/realWorldDataset",
+    "ssd/dataset/data/realDataset",
     "ssd/dataset/data/synthDataset"
 ]
 output_dir = "/Users/mikaeldeverdier/mahjong/mahjong/ssd/dataset/data/hybridDataset"
