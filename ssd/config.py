@@ -15,3 +15,7 @@ VALIDATION_SPLIT = 0.2
 # Saving configuration
 SAVE_FOLDER_PATH = "save_folder"
 SAVING_RATIO = 0.05
+
+# DATASET INFO:
+# Synthetic data: 12k images (same dataset as Version 2, only clipped at 12k (in order of annotations file))
+# Real data: 12.291k images (only 11.976k used due to ignore_no_gt in preparation being True)
