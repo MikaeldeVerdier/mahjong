@@ -6,7 +6,7 @@ input_dirs = [
     "ssd/dataset/data/realDataset",
     "ssd/dataset/data/synthDataset"
 ]
-output_dir = "/Users/mikaeldeverdier/mahjong/mahjong/ssd/dataset/data/hybridDataset"
+output_dir = "ssd/dataset/data/hybridDataset"
 combine_annotations = True
 
 new_annotations = []
@@ -19,20 +19,18 @@ for input_dir in input_dirs:
 
     annotations = files.load(input_dir)
     for i, annotation in enumerate(annotations):
-        annotations[i]["image"] = f"{dir_identifier}_{annotation['image']}"
+        old_name = annotation['image']
+        new_name = f"{dir_identifier}_{annotation['image']}"
+
+        old_path = os.path.join(input_dir, old_name)
+        new_path = os.path.join(output_dir, new_name)
+
+        files.copy_file(old_path, new_path)
+
+        annotations[i]["image"] = new_name
 
     if combine_annotations:
         new_annotations += annotations
-
-    for file in os.listdir(input_dir):
-        if file == ".DS_Store":
-            continue
-
-        if not file.endswith(".createml.json"):
-            old_path = os.path.join(input_dir, file)
-            new_path = os.path.join(output_dir, f"{dir_identifier}_{file}")
-
-            files.copy_file(old_path, new_path)
 
 if combine_annotations:
     files.save(new_annotations, output_dir)
