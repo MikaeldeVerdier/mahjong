@@ -1,7 +1,7 @@
 # Training configuration
 TRAINING_SPLIT = 1
 USE_AUGMENTATION = True
-LEARNING_RATE = {0: 1e-3, 80_000: 1e-4, 130_000: 1e-5}
+LEARNING_RATE = {0: 1e-3, 123_000: 1e-4, 140_000: 1e-5}
 MOMENTUM = 0.9
 ALPHA = 1
 L2_REG = 5e-4
