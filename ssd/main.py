@@ -23,7 +23,7 @@ if __name__ == "__main__":
     model = SSD_Model(input_shape, label_amount)
 
     training_dataset, testing_dataset = prepare_dataset("ssd/dataset/data/hybridDataset", labels, training_ratio=config.TRAINING_SPLIT)
-    retrain(model, training_dataset, config.TRAINING_ITERATIONS, config.EPOCHS, saved_ratio=config.SAVING_RATIO)
+    retrain(model, training_dataset, config.START_ITERATION, config.END_ITERATION, config.EPOCHS, saved_ratio=config.SAVING_RATIO)
 
     model.save_model("model")
     model.plot_metrics()
