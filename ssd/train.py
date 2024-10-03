@@ -18,7 +18,7 @@ def get_lr(iteration):
 def retrain(model, dataset, start_iteration, end_iteration, epochs, saved_ratio=1):
     used_start_iteration = 0
     if start_iteration is None and len(list(model.metrics.values())) != 0:
-        used_start_iteration = get_lr(len(list(model.metrics.values())[0]))
+        used_start_iteration = len(list(model.metrics.values())[0])
 
     model.model.optimizer.lr = get_lr(used_start_iteration)
 
