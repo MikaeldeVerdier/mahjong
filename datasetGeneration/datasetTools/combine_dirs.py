@@ -19,13 +19,13 @@ for input_dir in input_dirs:
 
     annotations = files.load(input_dir)
     for i, annotation in enumerate(annotations):
-        old_name = annotation['image']
+        old_name = annotation["image"]
         new_name = f"{dir_identifier}_{annotation['image']}"
 
         old_path = os.path.join(input_dir, old_name)
         new_path = os.path.join(output_dir, new_name)
 
-        files.copy_file(old_path, new_path)
+        files.copy_file(old_path, new_path)  # Copy whole directory instead?
 
         annotations[i]["image"] = new_name
 

@@ -14,4 +14,3 @@ def save(annotations, output_dir):
 
 def copy_file(old_path, new_path):
     shutil.copy(old_path, new_path)
-
