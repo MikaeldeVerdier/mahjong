@@ -179,6 +179,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		self.metrics = {}
 
+	@tf.function
 	def log_loss(self, y_true, y_pred):
 		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
 
@@ -187,6 +188,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		return log_loss
 
+	@tf.function
 	def smooth_L1_loss(self, y_true, y_pred):
 		# Credit: https://github.com/pierluigiferrari/ssd_keras/blob/master/keras_loss_function/keras_ssd_loss.py
 
@@ -196,6 +198,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		return tf.reduce_sum(l1_loss, axis=-1)  # ALTERNATIVELY: tf.reduce_mean(l1_loss, axis=-1)
 
+	@tf.function
 	def ssd_loss(self, y_true, y_pred):
 		y_true = tf.cast(y_true, tf.float32)
 		y_pred = tf.cast(y_pred, tf.float32)
