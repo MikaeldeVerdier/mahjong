@@ -18,8 +18,9 @@ from keras.regularizers import L2
 import box_utils
 import config
 from l2_norm import L2Normalization
+from loss_callback import LossHistory
 
-class SSD_Model:  # Consider instead saving weights, and using a seperate training and inference model (to decode in model)
+class SSD_Model:  # consider instead using a subclass-approach instead of this functional one (mixed though because of l2_norm and loss_history)
 	def __init__(self, input_shape, class_amount, lr=list(config.LEARNING_RATE.values())[0], momentum=config.MOMENTUM, hard_neg_ratio=config.HARD_NEGATIVE_RATIO, alpha=config.ALPHA, load=False):
 		self.input_shape = input_shape
 		self.class_amount = class_amount
@@ -177,6 +178,9 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		self.plot_model()
 		# self.model.summary()
 
+		self.cls_pos_loss = self.model.add_weight(name="cls_pos_loss", shape=(), initializer="zeros", trainable=False)  # is this really right..?
+		self.cls_neg_loss = self.model.add_weight(name="cls_neg_loss", shape=(), initializer="zeros", trainable=False)
+		self.loc_pos_loss = self.model.add_weight(name="loc_pos_loss", shape=(), initializer="zeros", trainable=False)
 		self.metrics = {}
 
 	@tf.function
@@ -236,6 +240,10 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		loss = (cls_pos_loss + cls_neg_loss + tf.constant(self.alpha, dtype=tf.float32) * loc_pos_loss) / tf.maximum(pos_amount, 1.0)
 		# loss *= tf.cast(pos_amount != 0, tf.float32)  # Shouldn't loss be 0 when there are no positives (according to paper)
 		loss *= tf.cast(batch_size, tf.float32)  # Counteracts Keras' batch loss average, only pos_amount matters (which is already divided by). Should still almost only matter when varying batch size.
+
+		self.cls_pos_loss.assign(tf.reduce_sum(cls_pos_loss) / tf.maximum(pos_amount, 1.0))  # inefficient
+		self.cls_neg_loss.assign(tf.reduce_sum(cls_neg_loss) / tf.maximum(pos_amount, 1.0))
+		self.loc_pos_loss.assign(tf.reduce_sum(loc_pos_loss) / tf.maximum(pos_amount, 1.0))
 
 		return loss
 
@@ -367,7 +375,7 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 
 		# loss = self.huber_with_mask(y_true, y_pred)
 
-		callbacks = []  # [TensorBoard(log_dir=f"{config.SAVE_FOLDER_PATH}/logs", histogram_freq=1, write_graph=True, write_images=True, update_freq="epoch", profile_batch=2, embeddings_freq=1)]
+		callbacks = [LossHistory(self.cls_pos_loss, self.cls_neg_loss, self.loc_pos_loss)]  # [TensorBoard(log_dir=f"{config.SAVE_FOLDER_PATH}/logs", histogram_freq=1, write_graph=True, write_images=True, update_freq="epoch", profile_batch=2, embeddings_freq=1)]
 		fit = self.model.fit(x, y, epochs=epochs, validation_split=config.VALIDATION_SPLIT, callbacks=callbacks)
 
 		for metric in fit.history:
@@ -398,21 +406,27 @@ class SSD_Model:  # Consider instead saving weights, and using a seperate traini
 		except ImportError:
 			print("You need to install pydot and graphviz to plot model architecture.")
 
-	def plot_metrics(self, scoped=False, name="metrics"):  # Consider adding labels for axis and such
-		_, axs = plt.subplots(len(self.metrics), figsize=(15, 4 * len(self.metrics)))
+	def plot_metrics(self, used_grouping=None, scoped=False, name="metrics"):  # Consider adding labels for axis and such
+		if used_grouping is None:
+			used_metrics = [["loss"], ["val_loss"], ["cls_pos_loss", "cls_neg_loss", "loc_pos_loss"]]
 
-		for ax, metric in zip(axs, self.metrics):
-			ax.plot(self.metrics[metric], label=metric)
+		_, axs = plt.subplots(len(used_metrics), figsize=(15, 4 * len(used_metrics)))
+
+		for ax, metrics in zip(axs, used_metrics):
+			for metric in metrics:
+				ax.plot(self.metrics[metric], label=metric)
+
 			ax.set_xscale("linear")
 			ax.legend()
 
-			if scoped:
-				median = np.median(self.metrics[metric])
-				share = 0.1
-				share_metric = int(len(self.metrics[metric]) * share)
-				sorted_metrics = np.sort(self.metrics[metric])
-				variance = np.mean(sorted_metrics[-share_metric:]) - np.mean(sorted_metrics[:share_metric])
-				ax.set_ylim(0, median + variance)
+			if len(metrics) == 0:  # could develop something for multiple ones but yeah
+				if scoped:
+					median = np.median(self.metrics[metrics[0]])
+					share = 0.1
+					share_metric = int(len(self.metrics[metrics[0]]) * share)
+					sorted_metrics = np.sort(self.metrics[metrics[0]])
+					variance = np.mean(sorted_metrics[-share_metric:]) - np.mean(sorted_metrics[:share_metric])
+					ax.set_ylim(0, median + variance)
 
 		plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}.png", dpi=200)
 		plt.close()
