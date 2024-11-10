@@ -170,7 +170,7 @@ class SSD_Model:  # consider instead using a subclass-approach instead of this f
 		class_preds = Concatenate(axis=1)(head_outputs[1])
 		class_predictions = Activation("softmax")(class_preds)
 
-		output = Concatenate(axis=-1)([class_predictions, location_predictions])
+		output = Concatenate(axis=-1)([class_predictions, location_predictions])  # would love to seperate these outputs but then the localization loss function would have the wrong pos_mask (right?)
 
 		self.model = Model(inputs=[base_network.input], outputs=[output])
 		self.model.compile(loss=self.ssd_loss, optimizer=SGD(learning_rate=learning_rate, momentum=momentum))  # Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-8, weight_decay=0))  # 
