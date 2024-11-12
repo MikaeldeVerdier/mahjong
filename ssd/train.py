@@ -34,10 +34,10 @@ def retrain(model, dataset, start_iteration, end_iteration, epochs, saved_ratio=
 
         model.train(np.array(x), np.array(y), epochs)
 
-        if not int((i - used_start_iteration + 1) % (iteration_amount / 10)):
+        if not int(i % (iteration_amount / 10)):
             print(f"Training iteration {i} completed!")
 
-        if not int((i - used_start_iteration + 1) % (iteration_amount * saved_ratio)):
+        if i != 0 and not int(i % (iteration_amount * saved_ratio)):
             model.save_model("model")
             model.plot_metrics()
 
