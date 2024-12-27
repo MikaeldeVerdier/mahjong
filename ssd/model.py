@@ -99,22 +99,25 @@ class SSD_Model:  # consider instead using a subclass-approach instead of this f
 
 		# x = base_network.output
 
+		x = Conv2D(filters=1024, kernel_size=(1, 1), padding="same", activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=1024, kernel_size=(3, 3), activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=1024, kernel_size=(1, 1), padding="same",activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=1024, kernel_size=(3, 3), activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
+		outputs.append(x)
+
+		x = Conv2D(filters=512, kernel_size=(1, 1), padding="same", activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=512, kernel_size=(3, 3), activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=512, kernel_size=(3, 3), activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
+		outputs.append(x)
+
 		x = Conv2D(filters=256, kernel_size=(1, 1), padding="same", activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
-		x = ZeroPadding2D(padding=((1, 1), (1, 1)))(x)
-		x = Conv2D(filters=512, kernel_size=(3, 3), strides=(2, 2), activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
-		outputs.append(x)
-
-		x = Conv2D(filters=128, kernel_size=(1, 1), padding="same", activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
-		x = ZeroPadding2D(padding=((1, 1), (1, 1)))(x)
-		x = Conv2D(filters=256, kernel_size=(3, 3), strides=(2, 2), activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
-		outputs.append(x)
-
-		x = Conv2D(filters=128, kernel_size=(1, 1), padding="same", activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=256, kernel_size=(3, 3), activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
 		x = Conv2D(filters=256, kernel_size=(3, 3), activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 
 		x = Conv2D(filters=128, kernel_size=(1, 1), padding="same", activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
-		x = Conv2D(filters=256, kernel_size=(3, 3), activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=128, kernel_size=(3, 3), activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
+		x = Conv2D(filters=128, kernel_size=(3, 3), activation="relu", kernel_initializer=kernel_initializer, kernel_regularizer=L2(config.L2_REG))(x)
 		outputs.append(x)
 		#
 
@@ -149,7 +152,7 @@ class SSD_Model:  # consider instead using a subclass-approach instead of this f
 			calc_step(32),
 			calc_step(64),
 			calc_step(100),
-			calc_step(300),
+			calc_step(300)
 		]
 
 		head_outputs = [[], []]
@@ -176,7 +179,7 @@ class SSD_Model:  # consider instead using a subclass-approach instead of this f
 		self.model.compile(loss=self.ssd_loss, optimizer=SGD(learning_rate=learning_rate, momentum=momentum))  # Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-8, weight_decay=0))  # 
 
 		self.plot_model()
-		# self.model.summary()
+		self.model.summary()
 
 		self.cls_pos_loss = self.model.add_weight(name="cls_pos_loss", shape=(), initializer="zeros", trainable=False)  # is this really right..?
 		self.cls_neg_loss = self.model.add_weight(name="cls_neg_loss", shape=(), initializer="zeros", trainable=False)
