@@ -3,9 +3,13 @@
 *__pycache__/
 
 save_folder/
-ssd/dataset/data*
+ssd/dataset/data/*
 *VOCdevkit/
 ssd/vgg16_weights/*
 !ssd/vgg16_weights/vgg16_weights.sh
+
+yolo_save/
+yolo/dataset/data/*
+yolo*.pt
 
 datasetGeneration/backgrounds
