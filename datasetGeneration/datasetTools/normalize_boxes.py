@@ -12,7 +12,7 @@ def normalize_boxes(input_dir, output_dir):
         files.create_path(output_dir)
 
     annotations = files.load(input_dir)
-    for i, annotation in enumerate(annotations):
+    for annotation in annotations:
         image_name = annotation["image"]
 
         old_path = os.path.join(input_dir, image_name)

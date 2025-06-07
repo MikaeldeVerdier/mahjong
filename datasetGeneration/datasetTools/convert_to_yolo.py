@@ -2,8 +2,8 @@ import os
 
 import files
 
-input_dir = "yolo/dataset/data/dataset100/dataset100_train"
-output_dir = "yolo/dataset/data/dataset100/dataset100_train_new"
+input_dir = "yolo/dataset/data/dataset100/train"
+output_dir = "yolo/dataset/data/dataset100/train_yolo"
 
 labels = [
     "Bamboo 1", "Bamboo 2", "Bamboo 3", "Bamboo 4", "Bamboo 5", "Bamboo 6", "Bamboo 7", "Bamboo 8", "Bamboo 9",

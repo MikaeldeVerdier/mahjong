@@ -7,7 +7,7 @@ output_dirs = [
     "yolo/dataset/data/dataset100/train",
     "yolo/dataset/data/dataset100/val"
 ]
-split = [0.2, 0.8]
+split = [0.9, 0.1]
 split_annotations = True
 
 

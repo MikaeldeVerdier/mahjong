@@ -3,10 +3,10 @@ import os
 import files
 
 input_dirs = [
-    "ssd/dataset/data/realDataset",
-    "ssd/dataset/data/synthDataset"
+    "ssd/dataset/data/dataset50_1",
+    "ssd/dataset/data/dataset50_2"
 ]
-output_dir = "ssd/dataset/data/hybridDataset"
+output_dir = "ssd/dataset/data/dataset100"
 combine_annotations = True
 
 
