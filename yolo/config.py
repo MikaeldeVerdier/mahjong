@@ -1,6 +1,6 @@
 # Model configuration
 model = "yolo11l.pt"
-image_size = (1024, 576)
+image_size = (512, 288)
 
 # Training configuration
 resume_training = False
@@ -15,7 +15,8 @@ model_name = "yolov11-mahjong"
 save_path = "yolo_save"
 
 # Export configuration
-export_format = "coreml"
+export_format = "mlmodel"
 export_half = True
-export_simplify = True
 export_nms = True
+default_conf = 0.25
+default_iou = 0.45

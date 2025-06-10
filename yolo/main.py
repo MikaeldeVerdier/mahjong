@@ -24,9 +24,16 @@ if __name__ == "__main__":
         save=True
     )
 
+    """
+    results = model("test.png")
+    results[0].save(filename=f"result.png")
+    """
+
     model.export(
         format=cfg.export_format,
         imgsz=cfg.image_size,
         half=cfg.export_half,
         nms=cfg.export_nms,
+        conf=cfg.default_conf,
+        iou=cfg.default_iou
     )
