@@ -23,6 +23,8 @@ if __name__ == "__main__":
         plots=True,
         save=True
     )
+    trainer = model.trainer
+    trainer.save_checkpoint(trainer.epoch + 1, final=True)  # save the last checkpoint (ultralytics saves at the beginning of the next epoch it seems)
 
     """
     results = model("test.png")
