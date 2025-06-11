@@ -422,13 +422,13 @@ def compute_mAP(all_preds, all_gts, labels, AP_type, matching_threshold, returns
     return mAP, aps, precs, recs
 
 
-def evaluate(model, dataset, labels, AP_type="sample", confidence_threshold=0.5):
+def evaluate(model, dataset, labels, AP_type="sample", confidence_threshold=0.01, iou_threshold=0.15, matching_threshold=0.5):
     all_preds = [[] for _ in labels]  # Entry per label
     all_gts = []  # Entry per image
 
     for i, (image_path, gt_boxes, gt_labels) in enumerate(dataset):
         image, gt_boxes, gt_labels = prepare_testing(image_path, gt_boxes, gt_labels, model.input_shape)
-        preds = model.inference(image, labels, confidence_threshold=0.01, iou_threshold=0.15)  # Supposed to be 0.01 (as in SSD paper)
+        preds = model.inference(image, labels, confidence_threshold=confidence_threshold, iou_threshold=iou_threshold)
 
         # box_utils.plot_ious(gt_boxes, preds[1], image, labels=preds[0], confidences=preds[2])
 
@@ -442,7 +442,7 @@ def evaluate(model, dataset, labels, AP_type="sample", confidence_threshold=0.5)
         gts = np.concatenate([np.expand_dims(gt_labels, axis=1), gt_boxes], axis=-1)  # (label, cx, cy, w, h)  # np.array(gt_labels)[:, None]
         all_gts.append(gts)
 
-    mAP, aps, precisions, recalls = compute_mAP(all_preds, all_gts, labels, AP_type, matching_threshold=confidence_threshold)
+    mAP, aps, precisions, recalls = compute_mAP(all_preds, all_gts, labels, AP_type, matching_threshold=matching_threshold)
     plot_prec_rec(precisions, recalls, mAP, aps, labels)
 
     return mAP

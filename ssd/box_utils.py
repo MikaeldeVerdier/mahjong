@@ -149,6 +149,10 @@ def plot_ious(gts, boxes, img, labels=None, confidences=None, name="boxes", scal
 		desc = "" if label is None else f"{label} ({confidence:.3f})" if confidence else f"{label}"
 		plt.text(left, bottom + 10, desc, horizontalalignment="center", fontdict=label_font)
 
+	plt.xticks([])
+	plt.yticks([])
+	plt.tight_layout()
+
 	plt.savefig(f"{config.SAVE_FOLDER_PATH}/{name}.png", dpi=300)
 	plt.close()
 

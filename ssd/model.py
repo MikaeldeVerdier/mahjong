@@ -480,7 +480,7 @@ class SSD_Model:  # consider instead using a subclass-approach instead of this f
 	def create_base_model(self, variances):  # A bit weird to have partial generality. Should really probably be a staticmethod (same for all of these)
 		decoded_model = self.create_decoded_tfmodel(variances)
 
-		mlmodel = ct.convert(decoded_model, inputs=[ct.ImageType("image", shape=(1,) + self.input_shape)], source="tensorflow")
+		mlmodel = ct.convert(decoded_model, inputs=[ct.ImageType("image", shape=(1,) + self.input_shape)], source="tensorflow", convert_to="neuralnetwork")
 
 		spec = mlmodel.get_spec()
 
