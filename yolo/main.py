@@ -1,6 +1,7 @@
 from ultralytics import YOLO
 
 import config as cfg
+from mlmodel_modifier import MLModelModifier
 
 if __name__ == "__main__":
     model = YOLO(cfg.model)
@@ -23,15 +24,13 @@ if __name__ == "__main__":
         plots=True,
         save=True
     )
-    trainer = model.trainer
-    trainer.save_checkpoint(trainer.epoch + 1, final=True)  # save the last checkpoint (ultralytics saves at the beginning of the next epoch it seems)
 
     """
     results = model("test.png")
     results[0].save(filename=f"result.png")
     """
 
-    model.export(
+    model_path = model.export(
         format=cfg.export_format,
         imgsz=cfg.image_size,
         half=cfg.export_half,
@@ -39,3 +38,8 @@ if __name__ == "__main__":
         conf=cfg.default_conf,
         iou=cfg.default_iou
     )
+
+    model_modifier = MLModelModifier(model_path)
+    model_modifier.change_nms_pickTop()
+    model_modifier.change_metadata(model.trainer.epochs if model.trainer else model.ckpt.get("epoch", None))
+    model_modifier.save(model_path)
