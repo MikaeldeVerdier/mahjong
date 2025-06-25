@@ -1,29 +1,18 @@
-from ultralytics import YOLO
-from ultralytics.engine.trainer import BaseTrainer
+import csv
 from ultralytics.utils.plotting import plot_results
-from pathlib import Path
-import yaml
 
 class ModelPlotter:
+    def __init__(self, results_path="results.csv"):
+        self.results_path = results_path
+
+    def create_results(self, model):  # create from checkpoint if not already created
+            results = model.ckpt["train_results"]
+            with open(self.results_path, "w") as f:
+                writer = csv.writer(f)
+                writer.writerow(results.keys())
+                for i in range(len(results["epoch"])):  # write each row
+                    row = [results[key][i] for key in results.keys()]
+                    writer.writerow(row)
+
     def plot_results(self):
-        plot_results("yolo_save/yolov11-mahjong_NEW/results.csv")
-        model = YOLO("yolo_save/yolov11-mahjong_NEW/weights/last.pt")
-
-        opt_path = "yolo_save/yolov11-mahjong_NEW/args.yaml"
-
-        # Load training args
-        with open(opt_path, "r") as f:
-            args = yaml.safe_load(f)
-
-        args['resume'] = True  # makes sure it resumes from that folder
-        args["device"] = "cpu"
-
-        # Create a Trainer manually
-        trainer = BaseTrainer(overrides=args)
-        trainer.model = model
-
-        # Now you can use Ultralytics' built-in plot method
-        trainer.plot_metrics()
-        pass
-
-ModelPlotter().plot_results()
+        plot_results(self.results_path)

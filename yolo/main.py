@@ -1,7 +1,7 @@
 from ultralytics import YOLO
-from ultralytics.utils.plotting import plot_results
 
 import config as cfg
+from model_plotter import ModelPlotter
 from mlmodel_modifier import MLModelModifier
 
 if __name__ == "__main__":
@@ -26,9 +26,13 @@ if __name__ == "__main__":
         save=True
     )
 
-    # plot_results(f"{cfg.save_path}/{cfg.model_name}/results.csv")
-
+    """  # Plot results
+    plotter = ModelPlotter(f"{cfg.save_path}/{cfg.model_name}/results.csv")
+    plotter.create_results(model)
+    plotter.plot_results()
     """
+
+    """  # Test inference
     results = model("test.png")
     results[0].save(filename=f"result.png")
     """
