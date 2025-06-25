@@ -1,4 +1,5 @@
 from ultralytics import YOLO
+from ultralytics.utils.plotting import plot_results
 
 import config as cfg
 from mlmodel_modifier import MLModelModifier
@@ -24,6 +25,8 @@ if __name__ == "__main__":
         plots=True,
         save=True
     )
+
+    # plot_results(f"{cfg.save_path}/{cfg.model_name}/results.csv")
 
     """
     results = model("test.png")

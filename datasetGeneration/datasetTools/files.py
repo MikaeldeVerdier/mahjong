@@ -13,11 +13,13 @@ def save(annotations, output_dir):
 
 
 def create_path(path):
-        dirs = path.split(os.sep)
+        sep = "/"  # os.sep
+        dirs = path.split(sep)
 
         cur_path = ""
         for dir in dirs:
-            cur_path = os.path.join(cur_path, dir)
+            # cur_path = os.path.join(cur_path, dir)
+            cur_path += f"{dir}{sep}"  # os.path.join(cur_path, dir)
             if not os.path.exists(cur_path):
                 os.mkdir(cur_path)
 
