@@ -13,3 +13,5 @@ yolo/dataset/data/*
 yolo*.pt
 
 datasetGeneration/backgrounds
+datasetGeneration/dataset
+datasetGeneration/synths
