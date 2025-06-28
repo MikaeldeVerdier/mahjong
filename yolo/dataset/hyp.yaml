@@ -8,9 +8,9 @@ dfl: 1.0  # higher -> more weight on precise localization
 hsv_h: 0.015  # max hue shift
 hsv_s: 0.4  # max saturation shift
 hsv_v: 0.6  # max value (brightness) shift
-degrees: 25.0  # max rotation in degrees
+degrees: 45.0  # max rotation in degrees
 translate: 0.2  # max translation as a fraction of image size
-scale: 0.5  # max zoom in/out as a fraction of image size
+scale: 0.4  # max zoom in/out as a fraction of image size
 shear: 2.0  # max shear in degrees
 perspective: 0.0005  # max perspective distortion
 flipud: 0.5  # probability of flipping images vertically

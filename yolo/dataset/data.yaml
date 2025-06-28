@@ -1,7 +1,7 @@
-path: yolo/dataset/data/dataset100
+path: yolo/dataset/data/synthAllFace165k
 
-train: train/images
-val: val/images
+train: train_150k/images
+val: val_15k/images
 
 nc: 43
 names:
