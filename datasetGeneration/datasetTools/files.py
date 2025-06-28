@@ -2,13 +2,20 @@ import os
 import shutil
 import json
 
-def load(input_dir):
-    with open(os.path.join(input_dir, "_annotations.createml.json"), "r") as json_file:
+def join_paths(*args):  # alternative to os.path.join but only using forward slashes
+    args = [arg.replace("\\", "/") for arg in args if len(arg)]  # replace backslashes with forward slashes
+    sep = "/"  # os.sep
+
+    return sep.join(args)
+
+
+def load_annotations(input_dir):
+    with open(join_paths(input_dir, "_annotations.createml.json"), "r") as json_file:
         return json.load(json_file)
     
 
-def save(annotations, output_dir):
-    with open(os.path.join(output_dir, "_annotations.createml.json"), "w") as json_file:
+def save_annotations(annotations, output_dir):
+    with open(join_paths(output_dir, "_annotations.createml.json"), "w") as json_file:
         json.dump(annotations, json_file)
 
 
@@ -18,8 +25,7 @@ def create_path(path):
 
         cur_path = ""
         for dir in dirs:
-            # cur_path = os.path.join(cur_path, dir)
-            cur_path += f"{dir}{sep}"  # os.path.join(cur_path, dir)
+            cur_path = join_paths(cur_path, dir)
             if not os.path.exists(cur_path):
                 os.mkdir(cur_path)
 
